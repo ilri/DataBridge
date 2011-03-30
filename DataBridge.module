@@ -1,0 +1,239 @@
+<?php
+
+// $Id$
+
+/**
+ * Copyright 2011 ILRI
+ *
+ * This file is part of DataBridge.
+ * 
+ * DataBridge is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * DataBridge is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with DataBridge.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+/**
+ * Initialize the DataBridge interface.
+ *
+ * This function loads external resources that are used by the DataBridge 
+ * module. 
+*/
+function DataBridge_init() {
+  include_once(drupal_get_path('module', 'DataBridge') . '/DataBridge.inc');
+}
+
+/** 
+ * Generates a user help page. 
+ *
+ * Creates a help page for the DataBridge module. Explains configuration, usage 
+ * and some tips and tricks on what can be done.
+ *
+ * @param string $path
+ *   The router menu path, as defined in DataBridge_menu().
+ * @param array $arg
+ *   An array that corresponds to the return value of the arg() function, for 
+ *   modules that want to provide help that is specific to certain values of 
+ *   wildcards in $path. For example, you could provide help for the path 
+ *   'user/1' by looking for the path 'user/%' and $arg[1] == '1'. This array 
+ *   should always be used rather than directly invoking arg(), because your 
+ *   hook implementation may be called for other purposes besides building the 
+ *   current page's help. Note that depending on which module is invoking 
+ *   hook_help, $arg may contain only empty strings. Regardless, $arg[0] to 
+ *   $arg[11] will always be set.
+ *   
+ * @return string
+ *   A localized string containing the help text.
+*/
+function DataBridge_help($path, $arg){
+  $help_output = '';
+  return $help_output;
+}
+
+/**
+ * Handles module permissions.
+ *
+ * Defines the permissions that are used by the DataBridge module. The 
+ * permissions are: 
+ * - "access DataBridge": Access the timeline and see open information.
+ * - "access DataBridge private": Private information is intended for 
+ *   Authorized Users.
+ * - "administer DataBridge": Allows users to administer the DataBridge module.
+ *
+ * @return array 
+ *   An array of permission strings. The strings must not be wrapped with the 
+ *   t() function, since the string extractor takes care of extracting 
+ *   permission names defined in the perm hook for translation.
+*/
+function DataBridge_permission(){
+  return array('administer DataBridge' => array(
+                 'title' => t('Administer DataBridge'),
+                 'description' => t('Allows a user to administer the settings 
+                                     of the DataBridge module.'),
+               ),
+               'access DataBridge' => array(
+                 'title' => t('Access DataBridge'),
+                 'description' => t('Allows users to view the DataBridge open
+                                     information.'),
+               ), 
+               'access DataBridge private' => array(
+                 'title' => t('Access DataBridge Private'),
+                 'description' => t('This permission can be used to hide 
+                                     sensitive information from unauthorized 
+                                     users.'),
+               ),
+              );
+}
+
+/**
+ * Creates the administration form for the DataBridge module.
+ *
+ * Creates the administration form for the DataBridge module, the form can be
+ * found at /admin/settings/DataBridge as defined in DataBridge_menu.
+ *
+ * @return array $form
+ *   A drupal form formatted by system_settings_form().
+*/
+function DataBridge_admin(){
+  $form = array();
+  
+  $form['DataBridge_database'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('DataBridge Database Settings'),
+    '#description' => t('Information to access the DataBridge database that will be used.'),
+    '#collapsible' => TRUE,
+  );
+  $form['DataBridge_database']['DataBridge_dbhost'] = 
+    array('#type' => 'textfield',
+	  '#title' => t('DataBridge database host'),
+	  '#default_value' => variable_get('DataBridge_dbhost', 'localhost'),
+	  '#size' => 20,
+	  '#maxlength' => 50,
+	  '#description' => t("Address to the DataBridge database."),
+	  '#required' => TRUE,
+	  );
+  $form['DataBridge_database']['DataBridge_dbname'] = 
+    array('#type' => 'textfield',
+	  '#title' => t('DataBridge database name'),
+	  '#default_value' => variable_get('DataBridge_dbname', 'databridge'),
+	  '#size' => 20,
+	  '#maxlength' => 50,
+	  '#description' => t("Name of the DataBridge database."),
+	  '#required' => TRUE,
+	  );
+  $form['DataBridge_database']['DataBridge_dbuser'] = 
+    array('#type' => 'textfield',
+	  '#title' => t('DataBridge database user'),
+	  '#default_value' => variable_get('DataBridge_dbuser', 'databridge'),
+	  '#size' => 20,
+	  '#maxlength' => 50,
+	  '#description' => t("User to connect to the DataBridge database."),
+	  '#required' => TRUE,
+	  );
+  $form['DataBridge_database']['DataBridge_dbpass'] = 
+    array('#type' => 'password',
+	  '#title' => t('DataBridge database password'),
+	  '#default_value' => variable_get('DataBridge_dbpass', ''),
+	  '#size' => 20,
+	  '#maxlength' => 50,
+	  '#description' => t("Password to connect to the DataBridge database."),
+	  '#required' => FALSE,
+	  );
+	return system_settings_form($form);
+}
+
+/**
+ * Creates the DataBridge paths and menu items.
+ *
+ * Defines paths to DataBridge pages and defines DataBridge menu items. The
+ * items that are defined are:
+ * - admin/config/content/databridge: This is the administration page
+ * - /databridge: This is a html return hook for open data
+ * - /databridge/private: This is a html return hook for private data
+*/
+function DataBridge_menu() {
+  $items = array();
+  $items['admin/config/content/databridge'] = 
+    array('title' => 'DataBridge',
+	  'description' => 'Administration page for the DataBridge module.',
+	  'page callback' => 'drupal_get_form',
+	  'page arguments' => array('DataBridge_admin'),
+	  'access arguments' => array('administer DataBridge'),
+	  'type' => MENU_NORMAL_ITEM,
+	  );
+	$items['databridge/private'] =
+    array('page callback' => 'DataBridge_private',
+	  'access arguments' => array('access DataBridge private'),
+	  'type' => MENU_CALLBACK,
+	  );
+	$items['databridge'] =
+    array('page callback' => 'DataBridge_open',
+	  'access arguments' => array('access DataBridge'),
+	  'type' => MENU_CALLBACK,
+	  );
+  return $items;
+}
+
+/**
+ * Serves excel sheets with private information back to other modules.
+ *
+ * @param string $type
+ *   - sampling
+ *   - wildlife
+ * @param string $opt1
+ *   First option to the data generation function, this option is different for
+ *   different types, namely:
+ *   - sampling: $opt1 = date
+ *   - wildlife: $opt1 = date
+ * @param string $opt2
+ *   Second option to the data generation function, this option is different
+ *   for different types, namely:
+ *   - sampling: $opt2 = location
+ *   - wildife: $opt2 = location
+*/
+function DataBridge_private($type, $opt1 = '', $opt2 = '') {
+  $info = '';
+  $filename = 'unknown.xls';
+  switch ($type) {
+  case 'sampling': $results = DataBridge_SamplingTrip($opt1, $opt2); 
+                   $filename = $results[0];
+                   $info = $results[1];
+                   break;
+  case 'wildlife': break;
+  case 'summary' : $filename = 'SamplingSummary_' . strftime('%Y-%m-%d') . '.xls';
+                   $info = DataBridge_SamplingSummary(); break;
+  default: _DataBridge_Message('UnknownType', $type);
+  }
+  drupal_add_http_header('Content-Type', 'application/vnd.ms-excel'); 
+  drupal_add_http_header('Content-Disposition:', 'attachment; filename=' . $filename  . ';');
+  echo _Excel($info);
+  exit(0);
+}
+
+/**
+ * Serves HTML with open information back to other modules.
+ *
+ * @param string $type
+ *   Type of information to return, valid types are: 
+ *   - samplings
+ *
+ * @return string $info
+ *   A HTML string contining the requested information.
+*/
+function DataBridge_open($type, $opt1 = '', $opt2 = '') {
+  $info = '';
+  switch ($type) {
+  case 'sampling': $info = DataBridge_SamplingTrips(); break;
+  case 'wildlife': $info = DataBridge_WildlifeTrips(); break;
+  default: _DataBridge_Message('UnknownType', $type);
+  }
+  return '<pre>' . print_r($info, true) . '</pre>';
+}
