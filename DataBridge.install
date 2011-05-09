@@ -1,0 +1,180 @@
+<?php
+
+/**
+ * Copyright 2011 ILRI
+ *
+ * This file is part of DataBridge.
+ * 
+ * DataBridge is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * DataBridge is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with DataBridge.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+/**
+ * @file
+ * Schema defintion, Install, update and uninstall functions for the DataBridge
+ * module.
+*/
+
+/**
+ * Creates the schema for the internal DataBridge database.
+ *
+ * The schema has one table, databridge_queries, which keeps track of the 
+ * database mapping towards the remote database.
+*/
+function DataBridge_schema() {
+  return array('databridge_queries' => 
+               array('description' => 'Stores query information for the DataBridge module.',
+                     'fields'      => 
+                     array('id'     => array('description' => 'Auto incrementing ID value.',
+                                             'type' => 'serial',
+                                             'size' => 'normal',
+                                             'not null' => True,
+                                             'unsigned' => True,
+                                             ),
+                           'name'   => array('description' => 'Description of the query',
+                                             'type' => 'varchar',
+                                             'length' => 30,
+                                             'not null' => True,
+                                             ),
+                           'fields' => array('description' => 'Fields to extract from the database',
+                                             'type' => 'text',
+                                             'size' => 'medium',
+                                             ),
+                           'tables' => array('description' => 'Tables to extract information from.',
+                                             'type' => 'text',
+                                             'size' => 'medium',
+                                             ),
+                           ),
+                     'primary key' => array('id',),
+                     'unique keys' => array('databridge_query_name' => array('name'),),
+                     'mysql_suffix' => " DEFAULT CHARACTER SET UTF8",
+                     ),
+               'databridge_species' =>
+               array('description'           => 'Stores species information for the DataBridge module.',
+                     'fields'                => 
+                     array('id'              => array('description' => 'Auto incrementing ID value.',
+                                             'type' => 'serial',
+                                             'size' => 'normal',
+                                             'not null' => True,
+                                             'unsigned' => True,
+                                             ),
+                           'common_name'     => array('description' => 'Common name of the species',
+                                             'type' => 'varchar',
+                                             'length' => 30,
+                                             'not null' => True,
+                                             ),
+                           'scientific_name' => array('description' => 'Scientific name of the species',
+                                             'type' => 'varchar',
+                                             'length' => 50,
+                                             ),
+                           'class'           => array('description' => 'Sampling class or classes of the species. Comma delimited.',
+                                             'type' => 'varchar',
+                                             'length' => 100,
+                                             ),
+                           ),
+                     'primary key' => array('id',),
+                     'unique keys' => array('databridge_common_name' => array('common_name'),),
+                     'mysql_suffix' => " DEFAULT CHARACTER SET UTF8",
+                     ),
+               'databridge_analysis' =>
+               array('description'     => 'Stores analysis type information for the DataBridge module.',
+                     'fields'          => 
+                     array('id'        => array('description' => 'Auto incrementing ID value.',
+                                             'type' => 'serial',
+                                             'size' => 'normal',
+                                             'not null' => True,
+                                             'unsigned' => True,
+                                             ),
+                           'name'      => array('description' => 'Name of the analysis',
+                                             'type' => 'varchar',
+                                             'length' => 30,
+                                             'not null' => True,
+                                             ),
+                           'status_query' => array('description' => 'query to extract analysis status.',
+                                             'type' => 'text',
+                                             'size' => 'medium',
+                                             ),
+                           'details_query' => array('description' => 'query to extract analysis details.',
+                                             'type' => 'text',
+                                             'size' => 'medium',
+                                             ),
+                           'protocol'  => array('description' => 'URL to the analysis protocol',
+                                             'type' => 'varchar',
+                                             'length' => 100,
+                                             ),
+                           ),
+                     'primary key' => array('id',),
+                     'unique keys' => array('databridge_analysis_name' => array('name'),),
+                     'mysql_suffix' => " DEFAULT CHARACTER SET UTF8",
+                     ),
+               'databridge_areas' =>
+               array('description'    => 'Stores gps area information for the DataBridge module.',
+                     'fields'            => 
+                     array('id'          => array('description' => 'Auto incrementing ID value.',
+                                             'type' => 'serial',
+                                             'size' => 'normal',
+                                             'not null' => True,
+                                             'unsigned' => True,
+                                             ),
+                           'name'        => array('description' => 'Name of the analysis variable',
+                                             'type' => 'varchar',
+                                             'length' => 30,
+                                             'not null' => True,
+                                             ),
+                           'center_lat'  => array('description' => 'Latitude of polygon center',
+                                             'type' => 'float',
+                                             'size' => 'normal',
+                                             ),
+                           'center_lon'  => array('description' => 'Longitude of polygon center',
+                                             'type' => 'float',
+                                             'size' => 'normal',
+                                             ),
+                           'radius'      => array('description' => 'Radius of area (for faster calculations)',
+                                             'type' => 'float',
+                                             'size' => 'normal',
+                                             ),
+                           'polygon'     => array('description' => 'area ccw polygon definition.',
+                                             'type' => 'text',
+                                             'size' => 'medium',
+                                             ),
+                           ),
+                     'primary key' => array('id',),
+                     'unique keys' => array('databridge_variable_name' => array('name'),),
+                     'foreign keys' => array('databridge_analysis_id' => array('table' => 'databridge_analysis',
+                                                                               'columns' => array('analysis_id' => 'id'),),
+                                             ),
+                     'mysql_suffix' => " DEFAULT CHARACTER SET UTF8",
+                     ),
+               );
+}
+
+/**
+ * Installs default behaviour for the DataBridge module.
+*/
+function DataBridge_install() {
+}
+
+/**
+ * Uninstalls the DataBridge module.
+ *
+ * This function empties the DataBridge database so if you are using the 
+ * internal database make sure to backup your data before uninstalling the 
+ * module!
+*/
+function DataBridge_uninstall() {
+  // Delete DataBridge system variables
+  variable_del('DataBridge_dbhost');
+  variable_del('DataBridge_dbname');
+  variable_del('DataBridge_dbuser');
+  variable_del('DataBridge_dbpass');
+}

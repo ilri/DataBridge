@@ -1,0 +1,163 @@
+/**
+ * Copyright 2011 ILRI
+ *
+ * This file is part of Databridge.
+ * 
+ * Databridge is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * Databridge is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with Databridge. If not, see <http://www.gnu.org/licenses/>.
+*/
+
+.databridge_analysis {
+    width: 450px;
+    height: 300px;
+    margin: 30px 0 0 20px;
+    border: 1px solid #333;
+    float: right;
+}
+
+.databridge_field {
+    width: 500px;;
+}
+
+#databridge_animalview div {
+}
+
+#databridge_animalview_static {
+    width: 536px;
+    height: 210px;
+    margin: 30px 0 0 20px;
+    border: 1px solid #333;
+    float: left;
+}
+
+#databridge_animalview_map {
+    width: 348px;
+    height: 210px;
+    margin: 30px 22px 0 5px;
+    border: 1px solid #333;
+    float: right;
+}
+
+#databridge_animalview_samples {
+}
+
+.databridge_animalview_sample {
+    width: 196px;
+    height: 210px;
+    margin: 30px 0 0 20px;
+    float: left;
+    border-left: 8px solid #333;
+    border-right: 8px solid #333;
+    border-top: 1px solid #333;
+    border-bottom: 1px solid #333;
+}
+
+#databridge_sampleview {
+    width: 536px;
+    height: 500px;
+    margin: 30px 0 0 20px;
+    border: 1px solid #333;
+    float: left;
+}
+
+#databridge_sampleview_map {
+    width: 348px;
+    height: 210px;
+    margin: 30px 22px 0 5px;
+    border: 1px solid #333;
+    float: right;
+}
+
+#databridge_sampleview_comment {
+    width: 348px;
+    height: 258px;
+    margin: 30px 22px 0 5px;
+    border: 1px solid #333;
+    float: right;
+}
+
+div#databridge_sampling_trips {
+    width: 450px;
+    height: 300px;
+    margin: 30px 0 0 20px;
+    border: 1px solid #333;
+    float: left;
+}
+
+div.databridge_header {
+    background: #275b8f;
+    padding: 5px 0 2px 20px;
+    border-bottom: 1px dashed #333;
+    color: #fff;
+    text-align: left;
+    font-family: Trebuchet MS, Verdana;
+    font-size: 11pt;
+}
+
+div.databridge_title {
+    background: #8f3b27;
+    padding: 5px 0 2px 0;
+    color: #fff;
+    border-bottom: 1px dashed #333;
+    text-align: center;
+}
+
+div.databridge_title a {
+    color: #fff;  
+    text-decoration: underline;
+}
+
+div.databridge_info {
+    padding: 10px;
+    font-family: monospace;
+}
+
+div.databridge_divider {
+    float: left;
+    width: 886px;
+    margin: 20px 22px -10px 20px;
+    border: 1px solid #333;
+}
+
+div.databridge_list {
+    height: 273px;
+    width: inherit;
+    overflow: auto;
+}
+
+.databridge_small {
+    font-size: small;
+}
+
+.databridge_large {
+    font-size: large;
+}
+
+.databridge_warning {
+    color: #ff7200;
+}
+
+.databridge_ok {
+    color: #aaa;
+}
+
+div.databridge_left {
+    float: left;
+    margin: 0 10px 0 0;
+}
+
+div.databridge_right {
+    max-width: 400px;
+    float: right;
+    margin: 0 0 0 10px;
+}

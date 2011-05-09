@@ -27,334 +27,113 @@
 */
 
 /**
- * Class that handles the database connection to the DataBridge database
+ * Gets query information from the database about a single query
  *
- * This class depends on having set the connection variables in the module 
- * configuration page.
+ * @param $query_name
+ *
+ * @return array $values
+ *   Associative array containing query values. 
 */
-Class _DataBridgeInterface {
-  var $user;
-  var $pass;
-  var $name;
-  var $host;
-  var $db;
-  var $error;
-  
-  /**
-   * Constructor for the _DataBridgeInterface.
-   *
-   * The constructor assigns the variables set in the drupal configuration page
-   * to local variables.
-  */
-  public function __construct() {
-    $this->user = variable_get('DataBridge_dbuser', 'databridge');
-    $this->pass = variable_get('DataBridge_dbpass', '');
-    $this->name = variable_get('DataBridge_dbname', 'databridge');
-    $this->host = variable_get('DataBridge_dbhost', 'localhost');
+function DataBridge_get($query_name) {
+  $values = db_select('databridge_queries', 'd')
+                      ->fields('d', array('fields', 'tables'))
+                      ->condition('name', $query_name, '=')
+                      ->execute()
+                      ->fetchAssoc();
+  if (!$values) {
+    return array();
   }
-  
-  /**
-   * Opens the database connection
-  */
-  public function open() {
-    if ( !($this->db = mysql_connect($this->host, $this->user, $this->pass)) ) {
-      $this->error = mysql_error();
-      return False;
-    } elseif ( !mysql_select_db($this->name, $this->db) ) {
-      $this->error = mysql_error();
-      return False;
-    }
-    return True;
-  }
-  
-  /**
-   * Closes the database connection
-  */
-  public function close() {
-    if ($this->db) {
-      mysql_close($this->db);
+  $fields = array();
+  foreach (explode('|', $values['fields']) as $field) {
+    if (preg_match('/(.*) AS (.*)/',$field, $match)) {
+      $fields[$match[2]] = $match[1];
     }
   }
-  
-  /**
-   * Performs a query in the database and returns the results.
-   *
-   * This function performs a query in the DataBridge database and returns 
-   * the query results in an array.
-   *
-   * @param string $query
-   *   The query to be executed in the database.
-   *
-   * @return array $results
-   *   An array containing the query results.
-  */
-  public function query($query) {
-    $results = array();
-    if ($this->db) {
-      $query_results = mysql_query($query, $this->db);
-      while ($query_results and $result = mysql_fetch_row($query_results)) {
-        array_push($results, $result);
-      }
-      
-    } else {
-      _DataBridge_Message('NotConnected');
-    }
-    return $results;
-  }
-  
-} 
-
-/**
- * Creates an array of events for each livestock sampling
- * 
- * @return array(array) $events
- *   An array of associative arrays containing the events
-*/
-function DataBridge_SamplingTrips() {
-  $query = "SELECT DATE_FORMAT(s.VisitDate, '%b %d %Y') AS date, 
-                   s.origin,
-                   s.Latitude,
-                   s.Longitude,
-                   SUM(IF(s.project = 5 AND s.AnimalID LIKE 'AVD%', 1, 0)) AS sampled_animals, 
-                   SUM(IF(ca.organism = 2, 1, 0)) AS sampled_goats, 
-                   SUM(IF(ca.organism = 2 AND ca.sex = 'Female', 1, 0)) AS female_goats, 
-                   SUM(IF(ca.organism = 3 AND ca.sex = 'Female', 1, 0)) AS female_sheep, 
-                   SUM(IF(ca.organism = 2 AND ca.Status = 'Alive', 1, 0)) AS goats_alive, 
-                   SUM(IF(ca.organism = 2 AND ca.Status = 'Dead', 1, 0)) AS goats_dead, 
-                   SUM(IF(ca.organism = 3 AND ca.Status = 'Alive', 1, 0)) AS sheep_alive, 
-                   SUM(IF(ca.organism = 3 AND ca.Status = 'Dead', 1, 0)) AS sheep_dead, 
-                   SUM(IF(ca.organism = 3 AND et.STATUS = 'POSITIVE', 1, 0)) AS sheep_positive, 
-                   SUM(IF(ca.organism = 2 AND et.STATUS = 'POSITIVE', 1, 0)) AS goats_positive, 
-                   CONCAT(TO_DAYS(s.VisitDate), '.', s.origin) AS link
-            FROM (
-                   SELECT AnimalID, 
-                          VisitDate, 
-                          origin, 
-                          project, 
-                          count, 
-                          Latitude, 
-                          Longitude
-                    FROM samples
-                    GROUP BY AnimalID
-                  ) s
-                  JOIN custom_animals ca ON s.AnimalID = ca.animal_id 
-                  LEFT JOIN elisaTest et ON et.sampleID = s.count 
-            WHERE VisitDate AND origin IS NOT NULL AND s.project = 5
-            GROUP BY TO_DAYS(date), origin;";
-  $events = array();
-  $db = new _DataBridgeInterface();
-  if ($db->open()) {
-    foreach ($db->query($query) as $result) {
-      $event = array();
-      $event['name']       = $result[1];
-      $event['start_date'] = $result[0];
-      $event['end_date']   = NULL;
-      $event['map']        = _GoogleStaticMap(array(array($result[2], $result[3])));
-      $event['latitude']   = $result[2];
-      $event['longitude']  = $result[3];
-      $event['private']    = user_access('access DataBridge private') 
-                             ? '<a href="' . url('databridge/private/sampling/' . str_replace('.', '/', $result[14]))  . '">&gt; Download Summary</a>' 
-                             : '';
-      $event['open']       = theme('table', 
-                                   array('header' => array(array('data' => $result[4] . ' animals sampled', 'colspan' => 3),),
-                                         'rows'   => array(array('Sheep',  $result[7] . ' F', ($result[4] - $result[5] - $result[7]) . ' M',),
-                                                           array('Goats',  $result[6] . ' F', ($result[5] - $result[6]             ) . ' M',),)
-                                   )) . 
-                             theme('table', 
-                                   array('header' => array(array('data' => 'Animal Status', 'colspan' => 4),),
-                                         'rows'   => array(array('', 'Alive', 'Dead', 'Unacc.'),
-                                                           array('Sheep', $result[10], $result[11], ($result[4] - $result[5]) - ($result[10] + $result[11])),
-                                                           array('Goats', $result[8], $result[9], $result[5] - $result[8] - $result[9])))) . 
-                             theme('table', 
-                                   array('header' => array(array('data' => 'Elisa Results', 'colspan' => 3),),
-                                         'rows'   => array(array('', 'Positive', 'Negative'),
-                                                           array('Sheep', $result[12], ($result[4] - $result[5]) - $result[12]),
-                                                           array('Goats', $result[13], $result[5] - $result[13]))));
-      array_push($events, $event);
-    }
-  }
-  return $events;
+  $values['fields'] = $fields;
+  return $values;
 }
 
 /**
- * Creates a sheet summary of all livestock sampling.
+ * Wrapper to quickly create three fieldsets for the config page.
  *
- * This function creates an array of arrays in the format rows[cols] containing
- * all livestock sampling information that is stored until now in the database.
+ * @param string $parent_name
+ *   Title of the fieldset
  *
- * @return array $sheet
- *  An array of arrays containing the information. Format: rows[cols].
+ * @param array $fields 
+ *   Array of fields to put in the fieldset.
+ *
+ * @return array $form
+ *   A form with three fieldsets. 
 */
-function DataBridge_SamplingSummary($start_day = 0, $end_day = 20000000, $locations = 'all') {
-  $sheet = array();
-  $db = new _DataBridgeInterface();
-  if ($db->open()) {
-    $location_query = 'SELECT DISTINCT origin 
-                       FROM samples 
-                       WHERE project = 5 
-                         AND AnimalID LIKE "AVD%" 
-                         AND origin != "";';
-    $locations = array();
-    foreach ($db->query($location_query) as $result) {
-      array_push($locations, "'" . $result[0] . "'");
-    }
-    $from = "samples s JOIN custom_animals ca ON s.AnimalID = ca.animal_id LEFT JOIN elisaTest et ON et.sampleID = s.count LEFT JOIN organisms o ON ca.organism = o.org_id "; // Organism added if requested later.
-    $where = "s.project = 5 AND s.AnimalID LIKE 'AVD%' AND TO_DAYS(s.VisitDate) >= ".$start_day." AND TO_DAYS(s.VisitDate) <= ".$end_day." AND s.origin IN (".implode(', ', $locations).")";
-    $elisa = "IF(SUM(IF(et.STATUS = 'POSITIVE', 1, 0)), '+', IF(SUM(IF(et.STATUS = 'NEGATIVE', 1, 0)), '-', '')) 'Elisa' ";
-    $dates = "SELECT DATE_FORMAT(s.VisitDate, '%Y-%m-%d') VisitDate, TO_DAYS(s.VisitDate), s.origin days FROM ".$from." WHERE VisitDate != '0000-00-00' AND ".$where." GROUP BY TO_DAYS(s.VisitDate);";
-    $animals = 'SELECT DISTINCT s.AnimalID, o.org_name FROM '.$from.' WHERE '.$where.';';
-    
-    $header = array('Animal ID', 'organism');
-    $pre_header = array();
-    foreach($header as $nothing) {
-      array_push($pre_header, '');
-    }
-    array_pop($pre_header);
-    array_push($pre_header, 'Elisa Results');
-    $sheet = array($pre_header, $header);
-
-    foreach ($db->query($animals) as $result) {
-      array_push($sheet, $result);
-    }
-    
-    $length = count($sheet[1]);
-    foreach ($db->query($dates) as $result) {
-      array_push($sheet[1], $result[0]);
-      array_push($sheet[0], $result[2]);
-      $elisa_query = 'SELECT s.AnimalID, '.$elisa.' FROM '.$from.' WHERE TO_DAYS(s.VisitDate) = '.$result[1].' AND '.$where.' GROUP BY s.AnimalID;';
-      foreach ($db->query($elisa_query) as $elisa_result) {
-        for ($i = 0; $i < count($sheet); $i++) {
-          if ($sheet[$i][0] == $elisa_result[0]) {
-            array_push($sheet[$i], $elisa_result[1]);
-            break;
-          }
-        }
-      }
-      _balance_sheet($sheet, ++$length);
-    }
+function DataBridge_fieldsets($parent_name = '', $data) {
+  $form = array();
+  $title = strtolower(str_replace('_', ' ', $parent_name));
+  $prefix = '';
+  foreach (explode('_', $parent_name) as $word) {
+    $prefix .= $word[0];
   }
-  return $sheet;
+  
+  $form[$parent_name] = array(
+    '#type'        => 'fieldset', 
+    '#title'       => t(ucfirst($title) . ' extraction queries'), 
+    '#description' => t('Defines how to access information about ' . $title . ' from the database.'), 
+    '#collapsible' => TRUE, 
+  );
+  $form[$parent_name]['fields'] = array(
+    '#type'        => 'fieldset', 
+    '#attributes'  => array('class' => array('databridge_field')), 
+    '#title'       => t('Database Fields'), 
+    '#description' => t('Database query strings to get field data from the remote database.'), 
+    '#collapsed'   => TRUE, 
+    '#collapsible' => TRUE, 
+  );
+  $form[$parent_name]['fields'] += DataBridge_textfields($prefix . '_', $data['fields']);
+  $form[$parent_name]['tables'] = array(
+    '#type'        => 'fieldset', 
+    '#attributes'  => array('class' => array('databridge_field')), 
+    '#title'       => t('Database Tables'), 
+    '#description' => t('Database query strings to get the tables to extract data from.'), 
+    '#collapsed'   => TRUE, 
+    '#collapsible' => TRUE, 
+  );
+  $form[$parent_name]['tables']['from_' . $prefix] = 
+             array('#type'          => 'textarea', 
+                   '#title'         => 'SQL', 
+                   '#cols'          => 60, 
+                   '#default_value' => $data['tables'], 
+                   '#required'      => TRUE, 
+                  );
+    
+  return $form;
 }
 
 /**
- * Creates an array of events for each wildlife sampling
- * 
- * @return array(array) $events
- *   An array of associative arrays containing the events
-*/
-function DataBridge_WildlifeTrips() {
-  $query = "SELECT DATE_FORMAT(VisitDate, '%b %d %Y') AS date, 
-                   origin,
-                   Latitude,
-                   Longitude,
-                   SUM(IF(count, 1, 0)) AS samples
-            FROM samples
-            WHERE VisitDate AND origin IS NOT NULL AND project = 5
-            AND AnimalID NOT IN (SELECT animal_id FROM custom_animals)
-            GROUP BY TO_DAYS(date), origin;";
-  $events = array();
-  $db = new _DataBridgeInterface();
-  if ($db->open()) {
-    foreach ($db->query($query) as $result) {
-      $event = array();
-      $event['name']       = $result[1];
-      $event['start_date'] = $result[0];
-      $event['end_date']   = NULL;
-      $event['map']        = _GoogleStaticMap(array(array($result[2], $result[3])));
-      $event['latitude']   = $result[2];
-      $event['longitude']  = $result[3];
-      $event['private']    = user_access('access DataBridge private') ? '[download_link]' : '';
-      $event['open']       = 'Wildlife sampling trip. ' . $result[4] . ' samples collected.';
-      array_push($events, $event);
-    }
-  } 
-  return $events;
-}
-
-/**
- * Returns a summary of a SamplingTrip defined by date and location.
+ * Generates a table of textfields for an input form
  *
- * @param int $date
- *   The date in days
- * @param string $location
- *   The name of the location 
+ * @param string prefix
+ *   A string prefix given to all fields
  *
- * @return array(array) $data
- *   An array of arrays representing a spreadsheet of information.
+ * @param array $fields
+ *   An array of field names and values, each get a textfield in the form. 
+ *   The array should be formatted like array ('field_name' => 'value').
+ *
+ * @return array $form
+ *   A drupal form array
 */
-function DataBridge_SamplingTrip($sampling_day, $location) {
-  // Variables 
-  $db = new _DataBridgeInterface();
-  $header = array("Animal ID", "Location", "Species", "Status", "Sex", "Owner", );
-  $last_date = NULL;
-  $location = str_replace('_', ' ', $location);  
+function DataBridge_textfields($prefix = '', $fields = array()) {
+  $form = array();
   
-  // Queries, some don't make much sense 
-  $get_earlier = "SELECT TO_DAYS(VisitDate) days, 
-                         DATE_FORMAT(VisitDate, '%Y-%m-%d') VisitDate 
-                  FROM samples 
-                  WHERE AnimalID LIKE 'AVD%' 
-                    AND project = 5 
-                    AND VisitDate != '0000-00-00' 
-                    AND TO_DAYS(VisitDate) <= " . $sampling_day . " 
-                    AND origin = '" . $location . "' 
-                  GROUP BY TO_DAYS(VisitDate)
-                  ORDER BY TO_DAYS(VisitDate) ASC;";  
-  
-  if ($db->open()) {
-    // Get earlier sampling trips to the same location.
-    $earlier = array();
-    foreach ($db->query($get_earlier) as $result) {
-      array_push($earlier, $result[0]);
-      array_push($header, $result[1]);
-      $last_date = $result[1];
-    }
-    
-    // Defining the rest of the queries and variables now that we know the 
-    // history
-    $sheet = array(0 => $header);
-    $where     = "WHERE s.AnimalID LIKE 'AVD%' 
-                    AND s.project = 5 
-                    AND TO_DAYS(s.VisitDate) IN (".implode(', ', $earlier).") 
-                    AND s.origin = '" . $location . "' 
-                  GROUP BY s.AnimalID ORDER BY s.AnimalID;";
-    $from      = "FROM samples s 
-                       JOIN custom_animals ca ON s.AnimalID = ca.animal_id 
-                       JOIN organisms o ON ca.organism = o.org_id 
-                       LEFT JOIN elisaTest et ON et.sampleID = s.count"; 
-    $base_info = "SELECT s.AnimalID, 
-                         s.origin, 
-                         o.org_name, 
-                         ca.status, 
-                         ca.sex, 
-                         ca.owner " . $from . " " . $where;
-    $get_elisa = "IF(SUM(IF(et.STATUS = 'POSITIVE', 1, 0)), '+', IF(SUM(IF(et.STATUS = 'NEGATIVE', 1, 0)), '-', '')) 'Elisa' ";
-    
-    // fill out the sheet with base information
-    foreach ($db->query($base_info) as $result) {
-      array_push($sheet, $result);
-    }
-    
-    $length = count($sheet[2]);
-    foreach($earlier as $date) {
-      $query = "SELECT s.AnimalID, " . $get_elisa . " " . $from . " 
-                WHERE s.AnimalID LIKE 'AVD%' 
-                  AND s.project = 5 
-                  AND TO_DAYS(s.VisitDate) = " . $date . "
-                  GROUP BY s.AnimalID;";
-      foreach ($db->query($query) as $result) {
-        for ($i = 0; $i < count($sheet); $i++) {
-          if ($sheet[$i][0] == $result[0]) {
-            array_push($sheet[$i], $result[1]);
-            break;
-          }
-        }
-      }  
-      _balance_sheet($sheet, ++$length);
-    } 
-    $length = count($sheet[2]);
+  foreach (array_keys($fields) as $field) {
+    $form[$prefix . $field] =
+      array('#type'    => 'textfield',
+      '#title'         => $field,
+  	  '#default_value' => $fields[$field],
+  	  '#size'          => 90,
+  	  '#maxlength'     => 200,
+  	  '#required'      => TRUE,
+  	  );
   }
-  return array(str_replace(' ', '_', $location) . '_' . $last_date . '.xls', $sheet);
+  return $form;
 }
 
 /**
@@ -427,6 +206,30 @@ function _balance_sheet(&$sheet, $length) {
     }
   }
   return True;
+}
+
+/**
+ * Creates list controls for a list
+ *
+ * @param string $list
+ *   The list to be controlled
+ * @param int $start
+ *   Start of the current list
+ * @param int $nr_of_items
+ *   Number of items in the current list
+ *
+ * @return string $html
+*/
+function Databridge_listcontrol($list, $start = 0, $nr_of_items = 50) {
+  $page_content  = '<div class="databridge_listcontrol">';
+  if ($start > 0) {
+    $min = ($start - $nr_of_items) < 0 ? 0 : ($start - $nr_of_items);
+    $page_content .= l('<<', 'databridge/' . $list . '/list/' . $min . '/' . $nr_of_items);
+  }
+  $page_content .= ' [' . $start . ' to ' . ($start + $nr_of_items) . '] ';
+  $page_content .= l('>>', 'databridge/' . $list . '/list/' . ($start + $nr_of_items) . '/' . $nr_of_items);
+  $page_content .= '</div>';
+  return $page_content;
 }
 
 /**
@@ -565,5 +368,3 @@ EOH;
   
   return $sheet;
 }
-
-
