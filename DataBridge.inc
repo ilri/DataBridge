@@ -27,116 +27,6 @@
 */
 
 /**
- * Gets query information from the database about a single query
- *
- * @param $query_name
- *
- * @return array $values
- *   Associative array containing query values. 
-*/
-function DataBridge_get($query_name) {
-  $values = db_select('databridge_queries', 'd')
-                      ->fields('d', array('fields', 'tables'))
-                      ->condition('name', $query_name, '=')
-                      ->execute()
-                      ->fetchAssoc();
-  if (!$values) {
-    return array();
-  }
-  $fields = array();
-  foreach (explode('|', $values['fields']) as $field) {
-    if (preg_match('/(.*) AS (.*)/',$field, $match)) {
-      $fields[$match[2]] = $match[1];
-    }
-  }
-  $values['fields'] = $fields;
-  return $values;
-}
-
-/**
- * Wrapper to quickly create three fieldsets for the config page.
- *
- * @param string $parent_name
- *   Title of the fieldset
- *
- * @param array $fields 
- *   Array of fields to put in the fieldset.
- *
- * @return array $form
- *   A form with three fieldsets. 
-*/
-function DataBridge_fieldsets($parent_name = '', $data) {
-  $form = array();
-  $title = strtolower(str_replace('_', ' ', $parent_name));
-  $prefix = '';
-  foreach (explode('_', $parent_name) as $word) {
-    $prefix .= $word[0];
-  }
-  
-  $form[$parent_name] = array(
-    '#type'        => 'fieldset', 
-    '#title'       => t(ucfirst($title) . ' extraction queries'), 
-    '#description' => t('Defines how to access information about ' . $title . ' from the database.'), 
-    '#collapsible' => TRUE, 
-  );
-  $form[$parent_name]['fields'] = array(
-    '#type'        => 'fieldset', 
-    '#attributes'  => array('class' => array('databridge_field')), 
-    '#title'       => t('Database Fields'), 
-    '#description' => t('Database query strings to get field data from the remote database.'), 
-    '#collapsed'   => TRUE, 
-    '#collapsible' => TRUE, 
-  );
-  $form[$parent_name]['fields'] += DataBridge_textfields($prefix . '_', $data['fields']);
-  $form[$parent_name]['tables'] = array(
-    '#type'        => 'fieldset', 
-    '#attributes'  => array('class' => array('databridge_field')), 
-    '#title'       => t('Database Tables'), 
-    '#description' => t('Database query strings to get the tables to extract data from.'), 
-    '#collapsed'   => TRUE, 
-    '#collapsible' => TRUE, 
-  );
-  $form[$parent_name]['tables']['from_' . $prefix] = 
-             array('#type'          => 'textarea', 
-                   '#title'         => 'SQL', 
-                   '#cols'          => 60, 
-                   '#default_value' => $data['tables'], 
-                   '#required'      => TRUE, 
-                  );
-    
-  return $form;
-}
-
-/**
- * Generates a table of textfields for an input form
- *
- * @param string prefix
- *   A string prefix given to all fields
- *
- * @param array $fields
- *   An array of field names and values, each get a textfield in the form. 
- *   The array should be formatted like array ('field_name' => 'value').
- *
- * @return array $form
- *   A drupal form array
-*/
-function DataBridge_textfields($prefix = '', $fields = array()) {
-  $form = array();
-  
-  foreach (array_keys($fields) as $field) {
-    $form[$prefix . $field] =
-      array('#type'    => 'textfield',
-      '#title'         => $field,
-  	  '#default_value' => $fields[$field],
-  	  '#size'          => 90,
-  	  '#maxlength'     => 200,
-  	  '#required'      => TRUE,
-  	  );
-  }
-  return $form;
-}
-
-/**
  * Sets default messages for the DataBridge module.
  *
  * @param string $type
@@ -367,4 +257,32 @@ EOH;
   $sheet .= $footer;
   
   return $sheet;
+}
+
+/**
+ * Recursively finds a key in a nested array and returns it's value
+ *
+ * @param array $data
+ *   A nested array to search through
+ * @param string $key
+ *   The key to search for
+ *
+ * @return $value
+ *   The value of the key or NULL if not found.
+*/
+function DataBridge_rfind($data, $key) {
+  if ( !is_array($data) ) {
+    return NULL;
+  }
+  if (array_key_exists($key, $data)) {
+    return $data[$key];
+  }
+  foreach ( $data as $sub ) {
+    if ( is_array($sub) ) {
+      if ( $val = DataBridge_rfind($sub, $key) ) {
+        return $val;
+      }
+    }
+  }
+  return NULL;
 }

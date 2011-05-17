@@ -34,7 +34,10 @@ function DataBridge_init() {
   include_once(drupal_get_path('module', 'DataBridge') . '/DataBridge.sampling.inc');
   include_once(drupal_get_path('module', 'DataBridge') . '/DataBridge.summary.inc');
   include_once(drupal_get_path('module', 'DataBridge') . '/DataBridge.sample.inc');
-  include_once(drupal_get_path('module', 'DataBridge') . '/DataBridge.database.inc');
+  include_once(drupal_get_path('module', 'DataBridge') . '/DataBridge.forms.inc');
+  include_once(drupal_get_path('module', 'DataBridge') . '/DataBridge.database.external.inc');
+  include_once(drupal_get_path('module', 'DataBridge') . '/DataBridge.database.internal.inc');
+  include_once(drupal_get_path('module', 'DataBridge') . '/DataBridge.external.inc');
   drupal_add_css(drupal_get_path('module', 'DataBridge') . '/DataBridge.css');
 }
 
@@ -182,9 +185,20 @@ function DataBridge_menu() {
 	  'type' => MENU_CALLBACK,
 	  );
 	$items['databridge/config'] =
-    array('title' => 'DataBridge Config',
-	  'page callback' => 'drupal_get_form',
-	  'page arguments' => array('DataBridge_config'),
+    array('title' => 'DataBridge Species Config',
+	  'page callback' => 'DataBridge_config_species',
+	  'access arguments' => array('administer DataBridge'),
+	  'type' => MENU_CALLBACK,
+	  );
+	$items['databridge/config/analysis'] =
+    array('title' => 'DataBridge Analysis Config',
+	  'page callback' => 'DataBridge_config_analysis',
+	  'access arguments' => array('administer DataBridge'),
+	  'type' => MENU_CALLBACK,
+	  );
+	$items['databridge/config/samplings'] =
+    array('title' => 'DataBridge Samplings Config',
+	  'page callback' => 'DataBridge_config_samplings',
 	  'access arguments' => array('administer DataBridge'),
 	  'type' => MENU_CALLBACK,
 	  );
@@ -234,6 +248,88 @@ function DataBridge_menu() {
 }
 
 /**
+ * Config page for animal species
+ *
+ * @return string $page
+ *   A html page
+*/
+function DataBridge_config_species() {
+  $page_content = '';
+  
+  $common     = 'Common name of the species, this name will be used in most places on the site.';
+  $scientific = 'Scientific name (latin name) of the species, this name will be used mostly to 
+                 ensure correct identification of the species and in rare instances in the system.';
+  $class      = 'The class of classes of the species, comma separated. The classes assigned to 
+                 animals define the sampling classes that will be used in the system. Example 
+                 classes are "livestock", "wildlife" or "poultry" or "random".';
+  
+  $page_content .= '<div class="databridge_instructions">';
+  $page_content .= '<h3>Common Name</h3>' . $common;
+  $page_content .= '<h3>Scientific Name</h3>' . $scientific;
+  $page_content .= '<h3>Class</h3>' . $class;
+  $page_content .= '</div>';
+  $page_content .= drupal_render(drupal_get_form('DataBridge_species_form'));
+  $page_content .= l('Continue to analysis configuration', 'databridge/config/analysis') . ' >>';
+  return $page_content;
+}
+
+/**
+ * Config page for animal analysis
+ *
+ * @return string $page
+ *   A html page
+*/
+function DataBridge_config_analysis() {
+  $page_content = '';
+  
+  $name        = 'Name of the analysis, will be used to reference this analysis.';
+  $description = 'Description of the analysis.';
+  $protocol    = 'URL to the protocol used for the analysis.';
+  $nr_of_vars  = 'The number of analysis variables that you want to display when viewing analysis results.';
+  $species     = 'The species that will be affected by this particular analysis.';
+  
+  $page_content .= '<div class="databridge_instructions">';
+  $page_content .= '<h3>Name</h3>' . $name;
+  $page_content .= '<h3>Description</h3>' . $description;
+  $page_content .= '<h3>Protocol</h3>' . $protocol;
+  $page_content .= '<h3>Nr of variables</h3>' . $nr_of_vars;
+  $page_content .= '<h3>Species</h3>' . $species;
+  $page_content .= '</div>';
+  
+  $page_content .= drupal_render(drupal_get_form('DataBridge_analysis_form'));
+  
+  $page_content .= '<< ' . l('Back to species configuration', 'databridge/config/species');
+  $page_content .= ' | ';
+  $page_content .= l('Continue to sampling configuration', 'databridge/config/samplings') . ' >>';
+  return $page_content;
+}
+
+/**
+ * Config page for animal samplings
+ *
+ * @return string $page
+ *   A html page
+*/
+function DataBridge_config_samplings() {
+  $page_content = '';
+  
+  $fields = 'SQL to extract specific information. Empty fields will be ignored by the database.';
+  $tables = 'The tables to extract information from. Use joins to make sure that all relevant 
+             information is in a single table. Note that this should _not_ include the FROM 
+             statement at the start.';
+  
+  $page_content .= '<div class="databridge_instructions">';
+  $page_content .= '<h3>Fields</h3>' . $fields;
+  $page_content .= '<h3>Tables</h3>' . $tables;
+  $page_content .= '</div>';
+  
+  $page_content .= drupal_render(drupal_get_form('DataBridge_samplings_form'));
+    
+  $page_content .= '<< ' . l('Back to analysis configuration', 'databridge/config/analysis');
+  return $page_content;
+}
+
+/**
  * Configuration page for the database interface. 
  *
  * For admins only! 
@@ -242,6 +338,9 @@ function DataBridge_menu() {
  *   The form that is to be generated, supplied by drupal
  * @param array &$form_state
  *   The current state of the form, supplied by drupal
+ *
+ * @return array $form
+ *   A drupal form array
 */
 function DataBridge_config($form, &$form_state) {
   $form = array();

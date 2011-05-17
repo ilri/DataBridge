@@ -275,16 +275,28 @@ function DataBridge_samplings($start = 0, $nr_of_items = 50) {
  * three parts, a general static information div, a static google map of sampling 
  * locations and lastly a dynamic list of collected samples.
  *
- * @param int $id = NULL
- *   Database id of the animal to be viewed.
+ * @param string $class = NULL
+ *   Sampling class
+ * @param int $location = NULL
+ *   Sampling location
+ * @param int $date = NULL
+ *   Sampling date
  *
  * @return string $html
  *   An html page to be returned by drupal.
 */
-function DataBridge_samplingview($location = NULL, $date = NULL) {
-  if ($location == NULL or $date == NULL) {
-    return DataBridge_samplings();
+function DataBridge_samplingview($type = NULL, $location = NULL, $date = NULL) {
+  $page_content  = '';
+  $page_content .= '<pre>';
+  $page_content .= '$type = ' . $type . "\n";
+  $page_content .= '$location = ' . $location . "\n";
+  $page_content .= '$date = ' . $date . "\n";
+  $page_content .= '</pre>';
+  if ($type == NULL or $location == NULL or $date == NULL) {
+    drupal_set_message('Unknown sampling trip', 'warning');
+    return DataBridge_summary();
   }
+  /*
   $data = DataBridge_getSampling($location, $date);
   $animals = array();
   foreach ($data as $animal) {
@@ -304,6 +316,7 @@ function DataBridge_samplingview($location = NULL, $date = NULL) {
   $page_content .= theme('table', array('header' => array('Animal', 'Organism', 'Sex', 'Status', 'ELISA'),
                                         'rows' => $animals,
                                        ));
+  */
   return $page_content;
 }
 

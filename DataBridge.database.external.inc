@@ -94,7 +94,7 @@ Class _DataBridgeInterface {
     $results = array();
     if ($this->db) {
       $query_results = mysql_query($query, $this->db);
-      while ($query_results and $result = mysql_fetch_row($query_results)) {
+      while ($query_results and $result = mysql_fetch_assoc($query_results)) {
         array_push($results, $result);
       }
       
@@ -104,6 +104,68 @@ Class _DataBridgeInterface {
     return $results;
   }
   
+}
+
+/**
+ * Gets sampling information from the external database.
+ *
+ * By default returns sampling information for all sampling types, when given
+ * the optional class parameter, only the class (or classes if given an array)
+ * matching the parameter is returned.
+ *
+ * @param $classes = NULL
+ *   String or array of strings with classes to return.
+ *
+ * @return array $samplings
+ *   An array of arrays of sampling information.
+*/
+function DataBridge_getSamplingInfo($classes = NULL) {
+  
+  // Get the classes sorted out
+  if ($classes) {
+    if ( !is_array($classes) ) {
+      $classes = array($classes);
+    }
+  } else {
+    $classes = DataBridge_getClasses();
+  }
+  
+  // Extract the queries from the internal database
+  $queries = array();
+  foreach ( $classes as $class ) {
+    $query = DataBridge_getQuery($class);
+    $fields = implode(", \n\t", explode('|', $query['fields']));
+    $from = $query['tables'];
+    $queries[$class] = "SELECT " . $fields . "\nFROM " . $from . "\nGROUP BY TO_DAYS(date), origin;";
+  }
+  
+  // Execute the queries in the external database and format the results
+  $data = array();
+  $db = new _DataBridgeInterface();
+  if ($db->open()) {
+    foreach ( $queries as $name => $query ) {
+      $data[$name] = $db->query($query);
+    }
+  }
+  
+  // Re-cluster the results with google geocoding
+  $geocoded = array();
+  foreach ( $data as $type ) {
+    foreach ( $type as $trip ) {
+      $geo_info = DataBridge_geocode($trip['latitude'], $trip['longitude']);
+      $location = DataBridge_rfind($geo_info, 'SubAdministrativeAreaName');
+      if ( !$location ) {
+        $location = DataBridge_rfind($geo_info, 'AdministrativeAreaName');
+      }
+      if ( !array_key_exists($location, $geocoded) ) {
+        $geocoded[$location] = array();
+      }
+      array_push($geocoded[$location], $trip);
+    }
+  }
+  
+  drupal_set_message('<pre>' . print_r($geocoded, true) . '</pre>');
+  return $data;
 }
 
 /**
@@ -242,22 +304,22 @@ function DataBridge_getPositive($type = 'elisa') {
  *   An array of sampling trips.
 */
 function Databridge_getSamplingTrips() {
-  $values = db_select('databridge_queries', 'd')
-                      ->fields('d', array('fields', 'tables'))
-                      ->condition('name', 'sampling_trips', '=')
-                      ->execute()
-                      ->fetchAssoc();
-  $temp = DataBridge_get('sampling_trips');
-  $link = $temp['fields']['date'] . ', "." , ' . $temp['fields']['origin'];
-  $query = 'SELECT ' . str_replace('|', ', ', $values['fields']) . 
-           ' CONCAT(' . $link . ') AS link' . 
-           ' FROM ' . $values['tables'] . 
-           ' GROUP BY TO_DAYS(date), origin;';
-  $db = new _DataBridgeInterface();
-  if ($db->open()) {
-    return $db->query($query);
-  }
-  return array();
+  //$values = db_select('databridge_queries', 'd')
+  //                    ->fields('d', array('fields', 'tables'))
+  //                    ->condition('name', 'sampling_trips', '=')
+  //                    ->execute()
+  //                    ->fetchAssoc();
+  //$temp = DataBridge_get('sampling_trips');
+  //$link = $temp['fields']['date'] . ', "." , ' . $temp['fields']['origin'];
+  //$query = 'SELECT ' . str_replace('|', ', ', $values['fields']) . 
+  //         ' CONCAT(' . $link . ') AS link' . 
+  //         ' FROM ' . $values['tables'] . 
+  //         ' GROUP BY TO_DAYS(date), origin;';
+  //$db = new _DataBridgeInterface();
+  //if ($db->open()) {
+  //  return $db->query($query);
+  //}
+  //return array();
 }
 
 /**

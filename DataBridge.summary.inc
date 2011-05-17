@@ -39,21 +39,39 @@
 */
 function DataBridge_summary() {
   $page_content  = '';
-  $page_content .= '<div id="databridge_sampling_trips">' . 
-                   '<div class="databridge_header">Sampling Trips</div>';                 
-  $page_content .= '<div class="databridge_list">' . 
-                   theme('table', array('header' => array('Location', 'Date', 'Animals Sampled'),
-                                        'rows'   => DataBridge_summary_trips(),));
-  $page_content .= '</div>';                                    
-  $page_content .= '</div>';
+
+  // Print summaries of all classes of sampling trips
+  foreach ( DataBridge_getSamplingInfo() as $name => $sampling ) {
+    $species = DataBridge_getSpecies($name);
+    $rows = array();
+    foreach ($sampling as $trip) {
+      $sampled = 0;
+      foreach ($species as $animal) {
+        if (array_key_exists('sampled_' . strtolower($animal['common_name']), $trip)) {
+          $sampled += $trip[strtolower('sampled_' . $animal['common_name'])];
+        }
+      }
+      $date = strftime('%Y-%m-%d', $trip['date']);
+      $location = l($trip['origin'], 'databridge/sampling/' . $name . '/' . $trip['origin'] . '/' . $date);
+      array_push($rows, array($location, $date, $sampled,));
+    }
+    $page_content .= '<div class="databridge_sampling">' . 
+                     '<div class="databridge_header">' . ucfirst($name) . ' Sampling Trips</div>';                 
+    $page_content .= '<div class="databridge_list">' . 
+                     theme('table', array('header' => array('Location', 'Date', 'Animals Sampled'),
+                                          'rows'   => $rows,));
+    $page_content .= '</div>';                                    
+    $page_content .= '</div>';
+  }
   
-  $page_content .= '<div class="databridge_analysis">' . 
-                   '<div class="databridge_header">Elisa Positive Samples</div>';                 
-  $page_content .= '<div class="databridge_list">' . 
-                   theme('table', array('header' => array('Sample', 'Animal', 'Location', 'Date',),
-                                        'rows'   => DataBridge_positive_samples(),));
-  $page_content .= '</div>';                                     
-  $page_content .= '</div>';
+  
+  //$page_content .= '<div class="databridge_analysis">' . 
+  //                 '<div class="databridge_header">Elisa Positive Samples</div>';                 
+  //$page_content .= '<div class="databridge_list">' . 
+  //                 theme('table', array('header' => array('Sample', 'Animal', 'Location', 'Date',),
+  //                                      'rows'   => DataBridge_positive_samples(),));
+  //$page_content .= '</div>';                                     
+  //$page_content .= '</div>';
   return $page_content;
 }
 
