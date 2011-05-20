@@ -54,6 +54,10 @@ function DataBridge_schema() {
                                              'type' => 'text',
                                              'size' => 'medium',
                                              ),
+                           'conditions' => array('description' => 'Conditions for the query.',
+                                             'type' => 'text',
+                                             'size' => 'medium',
+                                             ),
                            ),
                      'primary key' => array('id',),
                      'unique keys' => array('databridge_query_name' => array('name'),),
@@ -227,7 +231,7 @@ function DataBridge_install() {
     // Insert default values for samplings
     $samplings = array(array('id'     => 1,
                              'name'   => 'livestock',
-                             'fields' => "UNIX_TIMESTAMP(s.VisitDate) AS date|s.origin AS origin|s.Latitude AS latitude|s.Longitude AS longitude|SUM(IF(ca.organism = 3, 1, 0)) AS sampled_sheep|SUM(IF(ca.organism = 3 AND ca.sex = 'Female', 1, 0)) AS female_sheep|SUM(IF(ca.organism = 3 AND et.STATUS = 'POSITIVE', 1, 0)) AS sheep_ELISA|SUM(IF(ca.organism = 3 AND ca.Status = 'Alive', 1, 0)) AS sheep_Alive|SUM(IF(ca.organism = 2, 1, 0)) AS sampled_goat|SUM(IF(ca.organism = 2 AND ca.sex = 'Female', 1, 0)) AS female_goat|SUM(IF(ca.organism = 2 AND et.STATUS = 'POSITIVE', 1, 0)) AS goat_ELISA|SUM(IF(ca.organism = 2 AND ca.Status = 'Alive', 1, 0)) AS goat_Alive",
+                             'fields' => "UNIX_TIMESTAMP(s.VisitDate) AS `date`|s.origin AS `origin`|s.Latitude AS `latitude`|s.Longitude AS `longitude`|SUM(IF(ca.organism = 3, 1, 0)) AS `sheep/sampled`|SUM(IF(ca.organism = 3 AND ca.sex = 'Female', 1, 0)) AS `sheep/female`|SUM(IF(ca.organism = 3 AND et.STATUS = 'POSITIVE', 1, 0)) AS `sheep/ELISA`|SUM(IF(ca.organism = 3 AND ca.Status = 'Alive', 1, 0)) AS `sheep/Alive`|SUM(IF(ca.organism = 2, 1, 0)) AS `goat/sampled`|SUM(IF(ca.organism = 2 AND ca.sex = 'Female', 1, 0)) AS `goat/female`|SUM(IF(ca.organism = 2 AND et.STATUS = 'POSITIVE', 1, 0)) AS `goat/ELISA`|SUM(IF(ca.organism = 2 AND ca.Status = 'Alive', 1, 0)) AS `goat/Alive`",
                              'tables' => "( SELECT AnimalID, 
     VisitDate, 
     origin, 
@@ -241,14 +245,22 @@ function DataBridge_install() {
 JOIN custom_animals ca ON s.AnimalID = ca.animal_id 
 LEFT JOIN elisaTest et ON et.sampleID = s.count 
 WHERE VisitDate AND origin IS NOT NULL AND s.project = 5",
+                             'conditions'  => '',
                              ),
                        array('id'     => 2,
                              'name'   => 'wildlife',
-                             'fields' => "UNIX_TIMESTAMP(VisitDate) AS date|origin AS origin|Latitude AS latitude|Longitude AS longitude|SUM(IF(count, 1, 0)) AS sampled_wildlife",
+                             'fields' => "UNIX_TIMESTAMP(VisitDate) AS date|origin AS origin|Latitude AS latitude|Longitude AS longitude|SUM(IF(count, 1, 0)) AS `wildlife/sampled`",
                              'tables' => "samples 
 WHERE VisitDate AND origin IS NOT NULL AND project = 5
 AND AnimalID NOT IN (SELECT animal_id FROM custom_animals)",
+                             'conditions'  => '',
                              ),
+                        array('id'     => 3,
+                              'name'   => 'animals',
+                              'fields' => "",
+                              'tables' => "",
+                              'conditions'  => '',
+                              ),
                        );
     
      foreach($samplings as $query) {
@@ -263,7 +275,7 @@ AND AnimalID NOT IN (SELECT animal_id FROM custom_animals)",
  *
  * This function empties the DataBridge database so if you are using the 
  * internal database make sure to backup your data before uninstalling the 
- * module!
+ * module/
 */
 function DataBridge_uninstall() {
   // Delete DataBridge system variables

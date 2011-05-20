@@ -39,30 +39,9 @@
 */
 function DataBridge_summary() {
   $page_content  = '';
-
+  
   // Print summaries of all classes of sampling trips
-  foreach ( DataBridge_getSamplingInfo() as $name => $sampling ) {
-    $species = DataBridge_getSpecies($name);
-    $rows = array();
-    foreach ($sampling as $trip) {
-      $sampled = 0;
-      foreach ($species as $animal) {
-        if (array_key_exists('sampled_' . strtolower($animal['common_name']), $trip)) {
-          $sampled += $trip[strtolower('sampled_' . $animal['common_name'])];
-        }
-      }
-      $date = strftime('%Y-%m-%d', $trip['date']);
-      $location = l($trip['origin'], 'databridge/sampling/' . $name . '/' . $trip['origin'] . '/' . $date);
-      array_push($rows, array($location, $date, $sampled,));
-    }
-    $page_content .= '<div class="databridge_sampling">' . 
-                     '<div class="databridge_header">' . ucfirst($name) . ' Sampling Trips</div>';                 
-    $page_content .= '<div class="databridge_list">' . 
-                     theme('table', array('header' => array('Location', 'Date', 'Animals Sampled'),
-                                          'rows'   => $rows,));
-    $page_content .= '</div>';                                    
-    $page_content .= '</div>';
-  }
+  $page_content .= DataBridge_summary_sampling();
   
   
   //$page_content .= '<div class="databridge_analysis">' . 
@@ -76,21 +55,124 @@ function DataBridge_summary() {
 }
 
 /**
- * Returns a list of sampling trips to show in the summary page.
+ * Displays detailed info about a sampling trip.
  *
- * Gets sampling trip data from the database functions and format it to view
- * on the summary page.
+ * By default this function returns a list of all sampling trips, when given 
+ * the three optional parameters class, location and date it instead provides
+ * detailed information about the given trip. Note that the date in question 
+ * is the start date of the sampling trip.
  *
- * @return array $trips
- *   An array of sampling trip information.
+ * @param string $class = NULL
+ *   Sampling trip class, as set in the config/species page.
+ * @param string $location = NULL
+ *   Sampling trip location, as returned by DataBridge_getSamplingInfo()
+ * @param string $date = NULL
+ *
+ * @return string $html
+ *   Html formatted sampling information
 */
-function DataBridge_summary_trips() {
-  $trips = array();
-  foreach (Databridge_getSamplingTrips() as $raw) {
-    $trip = array(l($raw[1], 'databridge/sampling/' . $raw[1] . '/' . strftime('%Y-%m-%d', $raw[0])), 
-                  strftime('%Y-%m-%d', $raw[0]), $raw[4], );
-    array_push($trips, $trip);
+function DataBridge_summary_sampling($class = NULL, $location = NULL, $date = NULL) {
+  $raw = DataBridge_getSamplingInfo();
+  $page_content = '';
+  $data = NULL;
+  
+  // Check if we can get the data that we need from the database.
+  if ( ($class != NULL) and ($location != NULL) and ($date != NULL) ) {
+    foreach ( $raw[$class] as $trip ) {
+      if ( $trip['location'] == $location and strftime('%Y-%m-%d', $trip['start_date']) == $date ) {
+        $data = $trip;
+        break;
+      }
+    }
   }
   
-  return $trips;
+  // If the data was found, present it in a neat manner. 
+  if ( $data ) {
+    $page_content .= '<h3>' . ucfirst($class) . ' Sampling Trip to ' . $data['location'] . '</h3>';
+    $page_content .= DataBridge_textbox('Sampling Information', $data);
+    if ( isset($data['latitude']) and isset($data['longitude']) ) {
+      $coords = array();
+      foreach ($data['sublocations'] as $position) {
+        array_push($coords, array($position['latitude'], $position['longitude']));
+      }
+      $page_content .= '<div class="databridge_map">' . 
+                       '<img src="' . _GoogleStaticMap($coords, 348, 250) . '"></div>';
+    }
+    $page_content .= '<div class="databridge_divider databridge_header">' . 'Sublocations' . '</div>';
+    foreach ($data['sublocations'] as $location) {
+      $page_content .= '<div class="databridge_sampling">' . 
+                       '<div class="databridge_header">' . ucfirst($location['origin']) . 
+                       ' on ' . strftime('%Y-%m-%d', $location['date']) . '</div>';                 
+      $page_content .= '<div class="databridge_list">';
+      
+      // Create a header with the proper fields
+      $header = array('Animal ID', 'Sex', 'Species', );
+      foreach ( DataBridge_getAnalysis() as $analysis ) {
+        array_push($header, $analysis['name']);
+      }
+      
+      $animals = DataBridge_getAnimalInfo($location['origin'], $location['date']);
+      
+      // add links
+      foreach ( $animals as $key => $animal ) {
+        $animals[$key]['id'] = l($animal['id'], 'databridge/animal/' . $animal['id']);
+      }
+      
+      $page_content .= theme('table', array('header' => $header, 'rows' => $animals,) );
+      $page_content .= '</div>';                                    
+      $page_content .= '</div>';
+    }
+  }
+  
+  // If the data was NOT found, present a summary of samplings.
+  else {
+    foreach ( $raw as $name => $sampling ) {
+      $species = DataBridge_getSpecies($name);
+      $rows = array();
+      foreach ($sampling as $trip) {
+        $sampled = 0;
+        foreach ($species as $animal) {
+          if (array_key_exists(strtolower($animal['common_name']) . '/sampled', $trip)) {
+            $sampled += $trip[strtolower($animal['common_name']). '/sampled'];
+          }
+        }
+        $date = strftime('%Y-%m-%d', $trip['start_date']);
+        $location = l($trip['location'], 'databridge/sampling/' . $name . '/' . $trip['location'] . '/' . $date);
+        array_push($rows, array($location, $date, $sampled,));
+      }
+      $page_content .= '<div class="databridge_sampling">' . 
+                       '<div class="databridge_header">' . ucfirst($name) . ' Sampling Trips</div>';                 
+      $page_content .= '<div class="databridge_list">' . 
+                       theme('table', array('header' => array('Location', 'Date', 'Animals Sampled'),
+                                            'rows'   => $rows,));
+      $page_content .= '</div>';                                    
+      $page_content .= '</div>';
+    }
+  }
+  
+  
+  return $page_content;
+}
+
+/**
+ * Displays detailed info about an animal.
+ *
+ * By default this function returns detailed information about a single animal,
+ * when given an invalid id or no id defaults to showing the summary page and an 
+ * error message.
+ *
+ * @param $id = NULL
+ *   The id of the animal to extract from the database.
+ *
+ * @return $page_content
+ *   Returns some html to drupal.
+*/
+function DataBridge_summary_animal($id = NULL) {
+  $page_content  = '';
+  $info = DataBridge_getAnimalInfo(NULL, NULL, $id);
+  $page_content .= '<pre>';
+  $page_content .= '$info=' . print_r($info, true) . "\n";
+  $page_content .= '</pre>';
+  
+  return $page_content;
 }

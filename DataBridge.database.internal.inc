@@ -28,6 +28,8 @@
  *   interface of the Databridge package.
 */
 
+// TODO: replace i/u/g-Sampling/Animals w. iug-Query since they use the same table.
+
 /**
  * Gets analysis information from the internal database.
  *
@@ -50,6 +52,35 @@ function DataBridge_getAnalysis($species = NULL) {
     $analysis[$data['id']] = $data;
   }
   return $analysis;
+}
+
+/**
+ * Gets animal query information from the internal database.
+ *
+ * @return string $query
+ *   An animal information extraction query
+*/
+function DataBridge_getAnimals() {
+  $query = db_select('databridge_queries', 'dq')
+                   ->fields('dq', array('id', 'fields', 'tables', 'conditions',))
+                   ->condition('name', 'animals', '=')
+                   ->execute();
+  $raw = $query->fetchAssoc();
+  $animals = array('id' => $raw['id'],);
+  foreach ( explode('|', $raw['fields']) as $field ) {
+    if ( preg_match('/(.*) AS (.*)/', $field, $match) ) {
+      $animals['select_' . $match[2]] = $match[1];
+    }
+  }
+  if ( $raw['tables'] ) {
+    $animals['from'] = $raw['tables'];
+  }
+  foreach ( explode('|', $raw['conditions']) as $field ) {
+    if ( preg_match('/(.*):(.*)/', $field, $match) ) {
+      $animals['where_' . $match[2]] = $match[1];
+    }
+  }
+  return $animals;
 }
 
 /**
@@ -108,12 +139,12 @@ function DataBridge_getSamplings($class = NULL, $include_blanks = False) {
     // Add blanks for species 
     foreach ( DataBridge_getSpecies($class) as $species ) {
       $name = strtolower($species['common_name']);
-      $blanks['sampled_' . $name] = '';
-      $blanks['female_' . $name] = '';
+      $blanks[$name . '/sampled'] = '';
+      $blanks[$name . '/female'] = '';
   
       // Add blanks for species analysis
       foreach ( DataBridge_getAnalysis($species['id']) as $analysis ) {
-        $blanks[$name . '_' . $analysis['name']] = '';
+        $blanks[$name . '/' . $analysis['name']] = '';
       }
     }
     $fields = array_merge($default, $blanks);
@@ -165,7 +196,7 @@ function DataBridge_getSpecies($class = NULL) {
 */
 function DataBridge_getQuery($query) {
   return db_select('databridge_queries', 'd')
-                   ->fields('d', array('id', 'fields', 'tables'))
+                   ->fields('d', array('id', 'fields', 'tables', 'conditions'))
                    ->condition('name', $query, '=')
                    ->execute()
                    ->fetchAssoc();
@@ -187,6 +218,31 @@ function DataBridge_insertAnalysis($analysis) {
   try {
     db_insert('databridge_analysis')
               ->fields($analysis)
+              ->execute();
+  }
+  catch (Exception $e) {
+    $trn->rollback();
+    watchdog_exception('type', $e);
+    return False;
+  }
+  return True;
+}
+
+/**
+ * insert animal extraction query information to the internal database.
+ *
+ * @param array $fields
+ *   An array of animal query information arranged as 
+ *   ['name' => '', 'fields' => '', 'tables' => '', 'conditions' => '']
+ *
+ * @return bool $success
+ *   Returns True on success, False otherwise
+*/
+function DataBridge_insertAnimals($fields) {
+  $trn = db_transaction();
+  try {
+    db_insert('databridge_queries')
+              ->fields($fields)
               ->execute();
   }
   catch (Exception $e) {
@@ -265,6 +321,33 @@ function DataBridge_updateAnalysis($analysis) {
     db_update('databridge_analysis')
               ->fields($analysis)
               ->condition('id', $analysis['id'], '=')
+              ->execute();
+  }
+  catch (Exception $e) {
+    $trn->rollback();
+    watchdog_exception('type', $e);
+    return False;
+  }
+  return True;
+}
+
+/**
+ * Updates animal extraction query information to the internal database.
+ *
+ * @param array $fields
+ *   An array of animal query information arranged as 
+ *   ['id' => '', name' => '', 'fields' => '', 'tables' => '', 
+ *   'conditions' => '']
+ *
+ * @return bool $success
+ *   Returns True on success, False otherwise
+*/
+function DataBridge_updateAnimals($fields) {
+  $trn = db_transaction();
+  try {
+    db_update('databridge_queries')
+              ->fields($fields)
+              ->condition('id', $fields['id'], '=')
               ->execute();
   }
   catch (Exception $e) {

@@ -66,6 +66,7 @@ function DataBridge_analysis_form($form, &$form_state) {
  *   The current state of the form, supplied by drupal
 */
 function DataBridge_analysis_form_validate($form, &$form_state) {
+  // TODO: make sure that there are no # (hashes) in the names
 }
 
 /*
@@ -171,6 +172,127 @@ function DataBridge_analysis_input($id, $default_values = NULL, $table = true) {
 }
 
 /**
+* Creates a drupal for for inputing animal information.
+*
+* This form is used to put animal information into the internal database as
+* part of the configuration process.
+*
+* @param array $form
+*   The form that is to be generated, supplied by drupal
+* @param array &$form_state
+*   The current state of the form, supplied by drupal
+*
+* @return array $form
+*   A drupal form array
+*/
+function DataBridge_animals_form($form, &$form_state) {
+  $values = DataBridge_getAnimals();
+  
+  $form['id']        = array('#type'        => 'hidden',
+                             '#value'       => isset($values['id']) ? $values['id'] : NULL);
+  $form['select_id'] = array('#prefix'      => '<h3>SELECT</h3>',
+                           '#suffix'        => '',
+                           '#type'          => 'textfield', 
+                           '#title'         => 'id', 
+                           '#default_value' => isset($values['id']) ? $values['select_id'] : NULL, 
+                           '#size'          => 40,);
+  $form['select_species'] = array('#prefix' => '',
+                           '#suffix'        => '',
+                           '#type'          => 'textfield', 
+                           '#title'         => 'species', 
+                           '#default_value' => isset($values['id']) ? $values['select_species'] : NULL, 
+                           '#size'          => 40,);
+  $form['select_sex'] = array('#prefix'     => '',
+                           '#suffix'        => '',
+                           '#type'          => 'textfield', 
+                           '#title'         => 'sex', 
+                           '#default_value' => isset($values['id']) ? $values['select_sex'] : NULL, 
+                           '#size'          => 40,);
+  foreach ( DataBridge_getAnalysis() as $analysis ) {
+    $form['select_' . $analysis['name']] = 
+      array('#prefix'        => '',
+            '#suffix'        => '',
+            '#type'          => 'textfield', 
+            '#title'         => $analysis['name'], 
+            '#default_value' => isset($values['id']) ? $values['select_' . $analysis['name']] : NULL, 
+            '#size'          => 40,);
+  }
+  $form['from']    = array('#prefix'        => '<h3>FROM</h3>',
+                           '#suffix'        => '',
+                           '#type'          => 'textarea', 
+                           '#title'         => '', 
+                           '#default_value' => isset($values['id']) ? $values['from'] : NULL,);
+  $form['where_date']    = array('#prefix'        => '<h3>WHERE</h3>',
+                           '#suffix'        => '',
+                           '#type'          => 'textfield', 
+                           '#title'         => '= sampling date', 
+                           '#default_value' => isset($values['id']) ? $values['where_date'] : NULL,);
+  $form['where_origin']  = array('#prefix'  => '',
+                           '#suffix'        => '',
+                           '#type'          => 'textfield', 
+                           '#title'         => '= sampling origin', 
+                           '#default_value' => isset($values['id']) ? $values['where_origin'] : NULL,);
+  
+  $form['submit'] = array('#type' => 'submit',
+                          '#value' => 'Save Queries',);
+  return $form;
+}
+
+/**
+* Validation of animal query input form
+*
+* @param array $form
+*   The form that is to be generated, supplied by drupal
+* @param array &$form_state
+*   The current state of the form, supplied by drupal
+*/
+function DataBridge_animals_form_validate($form, &$form_state) {
+}
+
+/**
+* Submits the animal query input form
+*
+* @param array $form
+*   The form that is to be generated, supplied by drupal
+* @param array &$form_state
+*   The current state of the form, supplied by drupal
+*/
+function DataBridge_animals_form_submit($form, &$form_state) {
+  $fields = array('id'         => NULL,
+                  'name'       => 'animals',
+                  'fields'     => '',
+                  'tables'     => '',
+                  'conditions' => '',);
+  foreach ( $form_state['values'] as $key => $value ) {
+    if ( $key == 'id' ) {
+      $fields['id'] = $value;
+    }
+    elseif ( $key == 'from' ) {
+      $fields['tables'] .= $value;
+    }
+    elseif ( preg_match('/select_(.*)/', $key, $match) ) {
+      if ( !$fields['fields'] ) {
+        $fields['fields'] = $value . ' AS ' . $match[1];
+      } else {
+        $fields['fields'] .= '|' . $value . ' AS ' . $match[1];
+      }
+    }
+    elseif ( preg_match('/where_(.*)/', $key, $match) ) {
+      if ( !$fields['conditions'] ) {
+        $fields['conditions'] = $value . ':' . $match[1];
+      } else {
+        $fields['conditions'] .= '|' . $value . ':' . $match[1];
+      }
+    }
+  }
+  if ( !isset($fields['id']) ) {
+    DataBridge_insertAnimals($fields);
+  } else {
+    DataBridge_updateAnimals($fields);
+  }
+}
+
+/**
  * Creates a drupal for for inputing sampling information.
  *
  * This form is used to put sampling information into the internal database as
@@ -224,7 +346,7 @@ function DataBridge_samplings_form_submit($form, &$form_state) {
     foreach ( $form_state['values'] as $field => $value) {
       if ( preg_match('/' . $class . '_(.*)/', $field, $match) and $value) {
         $fields .= $fields ? '|' . $value : $value;
-        $fields .= ' AS ' . $match[1];
+        $fields .= ' AS `' . $match[1] . '`';
       }
       elseif ( preg_match('/from_' . $class . '/', $field) ) {
         $queries[$class]['tables'] = $value;

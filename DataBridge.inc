@@ -71,9 +71,12 @@ function _DataBridge_Message($type = '', $opt1 = '') {
  * @return string $url
  *   The URL for the google static map.
 */
-function _GoogleStaticMap($coords, $w = 200, $h = 200, $z = 10, $colors = array('blue', 'red', 'green', 'yellow')) {
+function _GoogleStaticMap($coords, $w = 200, $h = 200, $z = NULL, $colors = array('blue', 'red', 'green', 'yellow')) {
   $and = "&amp;";
-	$url = "http://maps.google.com/maps/api/staticmap?size=".$w."x".$h.$and."zoom=".$z;
+	$url = "http://maps.google.com/maps/api/staticmap?size=".$w."x".$h.$and;
+	if ($z) {
+	  $url .= "zoom=" . $z;
+	}
 	foreach ($coords as $pos) {
 		$url .= $and."markers=size:mid|color:blue|label:S|".$pos[0].",".$pos[1];
 	}
@@ -285,4 +288,120 @@ function DataBridge_rfind($data, $key) {
     }
   }
   return NULL;
+}
+
+/**
+ * Returns a div with formatted text.
+ *
+ * @param string $title
+ *   Title text for the textbox
+ * @param array $input
+ *   An associative array of values to present
+ * @param bool $include_table = true
+ *   If true, the textbox will also include a summary table.
+ * 
+ * @return $html
+ *   HTML div for the textbox
+*/
+function DataBridge_textbox($title, $input, $include_table = true) {
+  $page_content  = '';
+  $page_content .= '<div class="databridge_textbox">';
+  $page_content .= '<div class="databridge_header">' . $title . '</div>';
+  $page_content .= '<div class="databridge_info databridge_large">';
+  
+  $page_content .= DataBridge_info($input, true);
+
+  $page_content .= '</div>';
+  $page_content .= '</div>';
+  return $page_content;
+}
+
+/**
+ * Returns a set of float: left divs with formatted information.
+ *
+ * @param array $input
+ *   An associative array of values to present
+ * @param bool $include_table = true
+ *   If true, the textbox will also include a summary table.
+ *
+ * @return string $html
+ *   A html string including the formatted information.
+*/
+function DataBridge_info($input, $include_table = true) {
+  $page_content = '<div class="databridge_info">';
+  $keys = '';
+  $values = '';
+  $table = array();
+  foreach ( $input as $key => $value ) {
+    if ( !is_array($value) ) {
+      if ( strpos($key, '/') ) {
+        $table[$key] = $value;
+      }
+      else {
+        if ( stristr($key, 'date') ) {
+          try {
+            $values .= strftime('%Y-%m-%d', $value) . '<br>';
+          }
+          catch (Exception $e)  {
+            $values .= $value . '<br>';
+          }
+        } else {
+          $values .= $value . '<br>';
+        }
+        $keys   .= DataBridge_format($key) . ': <br>';
+      }
+    }
+  }
+  $page_content .= '<div class="databridge_left">' . $keys . '</div>';
+  $page_content .= '<div class="databridge_left">' . $values . '</div>';
+  if ($table and $include_table) {
+    $page_content .= '<div class="databridge_table">' . theme('table', DataBridge_table($table)) . '</div>';
+  }
+  $page_content .= '</div>';
+  return $page_content;
+}
+
+/**
+ * Makes a information table from databridge species/analysis info.
+ *
+ * @param array $data
+ *   An array of data in the format [species/key => value]
+ *
+ * @return array $table
+ *   An array formatted as a drupal table. [header => array, rows => array].
+*/
+function DataBridge_table($data) {
+  $header = array('');
+  $rows = array();
+  foreach ( $data as $key => $value ) {
+     if ( strpos($key, '/') ) {
+      $split = explode('/', $key);
+      if ( !in_array($split[0], $header) ) {
+        array_push($header, $split[0]);
+      }
+      if ( !array_key_exists($split[1], $rows) ) {
+        $rows[$split[1]] = array('title' => $split[1]);
+      }
+      $rows[$split[1]][$split[0]] = $value;
+    }
+  }
+  
+  // Make the text a bit neater
+  foreach ($header as $key => $value) { $header[$key]  = ucfirst($value);    }
+  foreach ($rows as $key => $value)   { $rows[$key]['title'] = ucfirst($value['title']); }
+  
+  return array('header' => $header, 'rows' => $rows);
+}
+
+/**
+ * Format a string a bit neater when taken from the database.
+ *
+ * @param string $value
+ *   The string to be formatted
+ *
+ * @return string $value
+ *   The formatted string
+*/
+function DataBridge_format($value) {
+  return ucfirst(str_replace('_', ' ',$value));
 }

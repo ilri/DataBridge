@@ -115,11 +115,16 @@ Class _DataBridgeInterface {
  *
  * @param $classes = NULL
  *   String or array of strings with classes to return.
+ * @param $cluster = true
+ *   If true, the samples will be clustered using geocoding and time.
+ * @param $min_clustering_time = 24
+ *   The minimum time in hours between samplings to count them as a single 
+ *   sampling trip.
  *
  * @return array $samplings
  *   An array of arrays of sampling information.
 */
-function DataBridge_getSamplingInfo($classes = NULL) {
+function DataBridge_getSamplingInfo($classes = NULL, $cluster = true, $min_clustering_time = 24) {
   
   // Get the classes sorted out
   if ($classes) {
@@ -136,10 +141,10 @@ function DataBridge_getSamplingInfo($classes = NULL) {
     $query = DataBridge_getQuery($class);
     $fields = implode(", \n\t", explode('|', $query['fields']));
     $from = $query['tables'];
-    $queries[$class] = "SELECT " . $fields . "\nFROM " . $from . "\nGROUP BY TO_DAYS(date), origin;";
+    $queries[$class] = "SELECT " . $fields . "\nFROM " . $from . "\nGROUP BY TO_DAYS(date), origin ORDER BY date;";
   }
   
-  // Execute the queries in the external database and format the results
+  // Execute the queries in the external database 
   $data = array();
   $db = new _DataBridgeInterface();
   if ($db->open()) {
@@ -148,23 +153,141 @@ function DataBridge_getSamplingInfo($classes = NULL) {
     }
   }
   
-  // Re-cluster the results with google geocoding
-  $geocoded = array();
-  foreach ( $data as $type ) {
+  // Re-cluster the results with geocoding and sampling dates
+  $sorted = array();
+  foreach ( $data as $name => $type ) {
+    $sorted[$name] = array();
     foreach ( $type as $trip ) {
       $geo_info = DataBridge_geocode($trip['latitude'], $trip['longitude']);
       $location = DataBridge_rfind($geo_info, 'SubAdministrativeAreaName');
       if ( !$location ) {
         $location = DataBridge_rfind($geo_info, 'AdministrativeAreaName');
       }
-      if ( !array_key_exists($location, $geocoded) ) {
-        $geocoded[$location] = array();
+      
+      $found = false;
+      foreach ($sorted[$name] as $key => $sampling) {
+        if ($location == $sampling['location'] 
+            and $trip['date'] <= $sampling['end_date'] + $min_clustering_time*3600) {
+              
+          array_push($sorted[$name][$key]['sublocations'], $trip);
+          
+          $sorted[$name][$key]['end_date'] = $trip['date'];
+          foreach ($trip as $index => $value) {
+            if ( !in_array($index, array('origin', 'date',)) ) {
+              $sorted[$name][$key][$index] += $value;
+            }
+          }
+          
+          $found = true;
+          
+        }
+      } 
+      if ( !$found ) {
+        $new = array('start_date'   => $trip['date'],
+                     'end_date'     => $trip['date'],
+                     'location'     => $location,
+                     'sublocations' => array($trip),);
+        foreach ($trip as $key => $value) {
+          if ( !in_array($key, array('origin', 'date',)) ) {
+            $new[$key] = $value;
+          }
+        }
+        array_push($sorted[$name], $new);
       }
-      array_push($geocoded[$location], $trip);
+    }  
+    // Calculate gps mid-point
+    foreach ($sorted[$name] as $key => $sampling) {
+      $sorted[$name][$key]['latitude'] /= count($sorted[$name][$key]['sublocations']);
+      $sorted[$name][$key]['longitude'] /= count($sorted[$name][$key]['sublocations']);
     }
   }
   
-  drupal_set_message('<pre>' . print_r($geocoded, true) . '</pre>');
+//  drupal_set_message('<pre>' . print_r($sorted, true) . '</pre>');
+  return $sorted;
+}
+
+/**
+ * Gets animal information from the external database.
+ *
+ * By default returns animal information for all animals. When given one or 
+ * more of the optional parameters, only the animal/s fitting the filter will
+ * be returned. All options can be given either as strings or arrays.
+ *
+ * @param $origin = NULL
+ *   String or array of strings with animal origins.
+ * @param $date = NULL
+ *   String or array of strings with sampling dates.
+ * @param $id = NULL
+ *   Animal id or ids to return.
+ *
+ * @return array $samplings
+ *   An array of arrays of animal information.
+*/
+function DataBridge_getAnimalInfo($origin = NULL, $date = NULL, $id = NULL) {
+  $raw = DataBridge_getQuery('animals');
+  $query  = "SELECT " . implode(",\n\t", explode('|', $raw['fields']));
+  $query .= "\nFROM " . $raw['tables'];
+  $where = '';
+  if ( ($origin or $date) and isset($raw['conditions']) ) {
+    $conditions = array();
+    foreach ( explode('|', $raw['conditions']) as $condition ) {
+      if ( preg_match('/(.*):(.*)/', $condition, $match)) {
+        $conditions[$match[2]] = $match[1];
+      }
+    }
+    
+    if ( $origin and isset($conditions['origin']) ) {
+      if ( !$where ) {
+        $where = "\nWHERE ";
+      } else {
+        $where .= "\nAND ";
+      }
+      if ( is_array($origin) ) {
+        $where .= $conditions['origin'] . ' IN ("' . implode('", "', $origin) . '")';
+      } else {
+        $where .= $conditions['origin'] . ' = "' . $origin . '"';
+      }
+    }
+    if ( $date and isset($conditions['origin']) ) {
+      if ( !$where ) {
+        $where = "\nWHERE ";
+      } else {
+        $where .= "\nAND ";
+      }
+      if ( is_array($origin) ) {
+        $where .= $conditions['date'] . ' IN ("' . implode('", "', $date) . '")';
+      } else {
+        $where .= $conditions['date'] . ' = "' . $date . '"';
+      }
+    }
+  }
+  if ( $id ) {
+    $id_field = '';
+    foreach ( explode('|', $raw['fields']) as $field ) {
+      if ( preg_match('/(.*) AS id/', $field, $match)) {
+        $id_field = $match[1];
+      }
+    }
+    if ( !$where ) {
+      $where = "\nWHERE ";
+    } else {
+      $where .= "\nAND ";
+    }
+    if ( is_array($origin) ) {
+      $where .= $id_field . ' IN ("' . implode('", "', $id) . '")';
+    } else {
+      $where .= $id_field . ' = "' . $id . '"';
+    }
+  }
+  $query .= $where;
+  $query .= "\n" . 'GROUP BY id';
+  
+  $db = new _DataBridgeInterface();
+  if ($db->open()) {
+    $data = $db->query($query);
+  }
+  
+ // drupal_set_message('<pre>' . print_r($query, true) . print_r($data, true) . '</pre>');
   return $data;
 }
 
@@ -179,18 +302,18 @@ function DataBridge_getSamplingInfo($classes = NULL) {
  * @return array $animals
  *   An array of animals
 */
-function Databridge_getAnimals($start = 0, $nr_of_items = 2000000) {
-  $db = new _DataBridgeInterface();
-  $query = "SELECT a.animal_id, o.org_name, a.sex, a.location, a.owner, a.status 
-            FROM custom_animals a 
-            JOIN organisms o ON o.org_id = a.organism
-            ORDER BY a.animal_id
-            LIMIT $start, $nr_of_items;";
-  if ($db->open()) {
-    return $db->query($query);
-  }
-  return array();
-}
+//function Databridge_getAnimals($start = 0, $nr_of_items = 2000000) {
+//  $db = new _DataBridgeInterface();
+//  $query = "SELECT a.animal_id, o.org_name, a.sex, a.location, a.owner, a.status 
+//            FROM custom_animals a 
+//            JOIN organisms o ON o.org_id = a.organism
+//            ORDER BY a.animal_id
+//            LIMIT $start, $nr_of_items;";
+//  if ($db->open()) {
+//    return $db->query($query);
+//  }
+//  return array();
+//}
 
 /**
  * Returns information about an animal from an animal id.

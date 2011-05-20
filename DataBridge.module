@@ -202,6 +202,12 @@ function DataBridge_menu() {
 	  'access arguments' => array('administer DataBridge'),
 	  'type' => MENU_CALLBACK,
 	  );
+	$items['databridge/config/animals'] =
+    array('title' => 'DataBridge Animal Config',
+	  'page callback' => 'DataBridge_config_animals',
+	  'access arguments' => array('administer DataBridge'),
+	  'type' => MENU_CALLBACK,
+	  );
 	$items['databridge/animal/list'] = 
 	  array('title' => 'DataBridge Animal Information',
 	  'page callback' => 'DataBridge_animals',
@@ -210,19 +216,13 @@ function DataBridge_menu() {
 	  );
 	$items['databridge/animal'] = 
 	  array('title' => 'DataBridge Animal Information',
-	  'page callback' => 'DataBridge_animalview',
-	  'access arguments' => array('access DataBridge private'),
-	  'type' => MENU_NORMAL_ITEM,
-	  );
-	$items['databridge/sampling/list'] = 
-	  array('title' => 'DataBridge Sampling Trip Information',
-	  'page callback' => 'DataBridge_samplings',
+	  'page callback' => 'DataBridge_summary_animal',
 	  'access arguments' => array('access DataBridge private'),
 	  'type' => MENU_NORMAL_ITEM,
 	  );
 	$items['databridge/sampling'] = 
 	  array('title' => 'DataBridge Sampling Trip Information',
-	  'page callback' => 'DataBridge_samplingview',
+	  'page callback' => 'DataBridge_summary_sampling',
 	  'access arguments' => array('access DataBridge private'),
 	  'type' => MENU_NORMAL_ITEM,
 	  );
@@ -326,6 +326,33 @@ function DataBridge_config_samplings() {
   $page_content .= drupal_render(drupal_get_form('DataBridge_samplings_form'));
     
   $page_content .= '<< ' . l('Back to analysis configuration', 'databridge/config/analysis');
+  $page_content .= ' | ';
+  $page_content .= l('Continue to animal configuration', 'databridge/config/animals') . ' >>';
+  return $page_content;
+}
+
+/**
+ * Config page for animals
+ *
+ * @return string $page
+ *   A html page
+*/
+function DataBridge_config_animals() {
+  $page_content = '';
+  
+  $select = 'SQL to extract specific information. Empty fields will be ignored by the database.';
+  $from   = '';
+  $where  = '';
+  
+  $page_content .= '<div class="databridge_instructions">';
+  $page_content .= '<h3>Select</h3>' . $select;
+  $page_content .= '<h3>From</h3>' . $from;
+  $page_content .= '<h3>Where</h3>' . $where;
+  $page_content .= '</div>';
+  
+  $page_content .= drupal_render(drupal_get_form('DataBridge_animals_form'));
+    
+  $page_content .= '<< ' . l('Back to sampling configuration', 'databridge/config/samplings');
   return $page_content;
 }
 
