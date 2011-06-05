@@ -153,6 +153,7 @@ function DataBridge_admin(){
 	  '#maxlength' => 50,
 	  '#description' => t("Password to connect to the DataBridge database."),
 	  '#required' => FALSE,
+	  '#suffix' => '>> ' . l('Continue to the database interface configuration', 'databridge/config'),
 	  );
 	return system_settings_form($form);
 }
