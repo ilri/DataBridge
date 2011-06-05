@@ -137,7 +137,7 @@ function Databridge_listcontrol($list, $start = 0, $nr_of_items = 50) {
  * @return string $sheet
  *   A string contaning a complete excel spreadsheet
 */
-function _Excel($data = array(array()), $date = NULL, $author = 'TimeView') {
+function DataBridge_excel($data = array(array()), $date = NULL, $author = 'TimeView') {
   if (!$date) {
     $date = strftime('%Y-%m-%dT%H:%M:%SZ');
   }
@@ -307,7 +307,35 @@ function DataBridge_textbox($title, $input, $include_table = true) {
   $page_content  = '';
   $page_content .= '<div class="databridge_textbox">';
   $page_content .= '<div class="databridge_header">' . $title . '</div>';
-  $page_content .= '<div class="databridge_info databridge_large">';
+  $page_content .= '<div class="databridge_large">';
+  
+  $page_content .= DataBridge_info($input, true);
+
+  $page_content .= '</div>';
+  $page_content .= '</div>';
+  return $page_content;
+}
+
+/**
+ * Returns a div with formatted text.
+ *
+ * This div is slimmer than the other type!
+ *
+ * @param string $title
+ *   Title text for the textbox
+ * @param array $input
+ *   An associative array of values to present
+ * @param bool $include_table = true
+ *   If true, the textbox will also include a summary table.
+ * 
+ * @return $html
+ *   HTML div for the textbox
+*/
+function DataBridge_textbox_slim($title, $input, $include_table = true) {
+  $page_content  = '';
+  $page_content .= '<div class="databridge_textbox_slim">';
+  $page_content .= '<div class="databridge_title">' . $title . '</div>';
+  $page_content .= '<div class="databridge_small">';
   
   $page_content .= DataBridge_info($input, true);
 
@@ -340,7 +368,11 @@ function DataBridge_info($input, $include_table = true) {
       else {
         if ( stristr($key, 'date') ) {
           try {
-            $values .= strftime('%Y-%m-%d', $value) . '<br>';
+            if ( !$value ) {
+              $values .= '-' . '<br>';
+            } else {
+              $values .= strftime('%Y-%m-%d', $value) . '<br>';
+            }
           }
           catch (Exception $e)  {
             $values .= $value . '<br>';
@@ -404,4 +436,90 @@ function DataBridge_table($data) {
 */
 function DataBridge_format($value) {
   return ucfirst(str_replace('_', ' ',$value));
+}
+
+/**
+ * Returns a formatted page describing a sampling trip.
+ *
+ * @param array $data
+ *   An array of data to be presented
+ * @param array $class
+ *   Sampling class
+ *
+ * @return $page_content
+ *   Page content to be displayed.
+*/
+function DataBridge_format_sampling($data, $class) {
+  $page_content  = '';
+  $page_content .= '<h3>' . ucfirst($class) . ' Sampling Trip to ' . $data['location'] . '</h3>';
+  $page_content .= DataBridge_textbox('Sampling Information', $data);
+  if ( isset($data['latitude']) and isset($data['longitude']) ) {
+    $coords = array();
+    foreach ($data['sublocations'] as $position) {
+      array_push($coords, array($position['latitude'], $position['longitude']));
+    }
+    $page_content .= '<div class="databridge_map">' . 
+                     '<img src="' . _GoogleStaticMap($coords, 348, 250) . '"></div>';
+  }
+  $page_content .= '<div class="databridge_divider databridge_header">' . 'Sublocations' . '</div>';
+  foreach ($data['sublocations'] as $location) {
+    $page_content .= '<div class="databridge_sampling">' . 
+                     '<div class="databridge_header">' . ucfirst($location['origin']) . 
+                     ' on ' . strftime('%Y-%m-%d', $location['date']) . '</div>';                 
+    $page_content .= '<div class="databridge_list">';
+    
+    // Create a header with the proper fields
+    $header = array('Animal ID', 'Sex', 'Species', );
+    foreach ( DataBridge_getAnalysis() as $analysis ) {
+      array_push($header, $analysis['name']);
+    }
+    
+    $animals = DataBridge_getAnimalList($location['origin'], $location['date']);
+    
+    // add links
+    foreach ( $animals as $key => $animal ) {
+      $animals[$key]['id'] = l($animal['id'], 'databridge/animal/' . $animal['id']);
+    }
+    
+    $page_content .= theme('table', array('header' => $header, 'rows' => $animals,) );
+    $page_content .= '</div>';                                    
+    $page_content .= '</div>';
+  }  
+  return $page_content;
+}
+
+/**
+ * Returns a neat summary of all sampling trips from an array of data.
+ *
+ * @param array $raw
+ *   An array of data to be presented
+ *
+ * @return $page_content
+ *   Page content to be displayed.
+*/
+function DataBridge_format_sampling_summary($raw) {
+  $page_content  = '';
+  foreach ( $raw as $name => $sampling ) {
+    $species = DataBridge_getSpecies($name);
+    $rows = array();
+    foreach ($sampling as $trip) {
+      $sampled = 0;
+      foreach ($species as $animal) {
+        if (array_key_exists(strtolower($animal['common_name']) . '/sampled', $trip)) {
+          $sampled += $trip[strtolower($animal['common_name']). '/sampled'];
+        }
+      }
+      $date = strftime('%Y-%m-%d', $trip['start_date']);
+      $location = l($trip['location'], 'databridge/sampling/' . $name . '/' . $trip['location'] . '/' . $date);
+      array_push($rows, array($location, $date, $sampled,));
+    }
+    $page_content .= '<div class="databridge_sampling">' . 
+                     '<div class="databridge_header">' . ucfirst($name) . ' Sampling Trips</div>';                 
+    $page_content .= '<div class="databridge_list">' . 
+                     theme('table', array('header' => array('Location', 'Date', 'Animals Sampled'),
+                                          'rows'   => $rows,));
+    $page_content .= '</div>';                                    
+    $page_content .= '</div>';
+  }
+  return $page_content;
 }

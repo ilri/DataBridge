@@ -332,4 +332,3 @@ function DataBridge_samplingview($type = NULL, $location = NULL, $date = NULL) {
 function DataBridge_samplingview_static($data) {
 
 }
-

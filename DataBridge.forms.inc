@@ -188,50 +188,110 @@ function DataBridge_analysis_input($id, $default_values = NULL, $table = true) {
 function DataBridge_animals_form($form, &$form_state) {
   $values = DataBridge_getAnimals();
   
-  $form['id']        = array('#type'        => 'hidden',
-                             '#value'       => isset($values['id']) ? $values['id'] : NULL);
-  $form['select_id'] = array('#prefix'      => '<h3>SELECT</h3>',
-                           '#suffix'        => '',
-                           '#type'          => 'textfield', 
-                           '#title'         => 'id', 
-                           '#default_value' => isset($values['id']) ? $values['select_id'] : NULL, 
-                           '#size'          => 40,);
-  $form['select_species'] = array('#prefix' => '',
-                           '#suffix'        => '',
-                           '#type'          => 'textfield', 
-                           '#title'         => 'species', 
-                           '#default_value' => isset($values['id']) ? $values['select_species'] : NULL, 
-                           '#size'          => 40,);
-  $form['select_sex'] = array('#prefix'     => '',
-                           '#suffix'        => '',
-                           '#type'          => 'textfield', 
-                           '#title'         => 'sex', 
-                           '#default_value' => isset($values['id']) ? $values['select_sex'] : NULL, 
-                           '#size'          => 40,);
+  // animal list query
+  $form['animal'] = array('#type'        => 'fieldset', 
+                          '#title'       => 'Animal extraction queries', 
+                          '#description' => t('Defines how to get animal information from the database.'), 
+                          '#collapsible' => TRUE, 
+                          );
+  $form['animal']['select'] = 
+       array('#type'        => 'fieldset', 
+             '#title'       => 'SELECT fields', 
+             '#description' => t('Defines the fields to select from the database.'), 
+             '#collapsible' => TRUE, 
+             '#collapsed'   => TRUE,
+            );
+  $form['animal']['tables'] = 
+       array('#type'        => 'fieldset', 
+             '#title'       => 'FROM fields', 
+             '#description' => t('Defines from where in the database the information should be selected.'), 
+             '#collapsible' => TRUE, 
+             '#collapsed'   => TRUE,
+            );
+  $form['animal']['where'] = 
+       array('#type'        => 'fieldset', 
+             '#title'       => 'WHERE fields', 
+             '#description' => t('Defines how the query should be filtered.'), 
+             '#collapsible' => TRUE, 
+             '#collapsed'   => TRUE,
+            );
+  $form['animal']['details'] = 
+       array('#type'        => 'fieldset', 
+             '#title'       => 'DETAIL fields', 
+             '#description' => t('Defines the fields to select from the database in the detail view.'), 
+             '#collapsible' => TRUE, 
+             '#collapsed'   => TRUE,
+            );
+  $form['animal']['select']['id'] = 
+       array('#type'        => 'hidden',
+             '#value'       => isset($values['id']) ? $values['id'] : NULL);
+  $form['animal']['select']['select_id'] = 
+       array('#prefix'      => '<h3>SELECT</h3>',
+             '#suffix'        => '',
+             '#type'          => 'textfield', 
+             '#title'         => 'id', 
+             '#default_value' => isset($values['select_id']) ? $values['select_id'] : NULL, 
+             '#size'          => 40,);
+  $form['animal']['select']['select_species'] = 
+       array('#prefix' => '',
+             '#suffix'        => '',
+             '#type'          => 'textfield', 
+             '#title'         => 'species', 
+             '#default_value' => isset($values['select_species']) ? $values['select_species'] : NULL, 
+             '#size'          => 40,);
+  $form['animal']['select']['select_sex'] = 
+       array('#prefix'     => '',
+             '#suffix'        => '',
+             '#type'          => 'textfield', 
+             '#title'         => 'sex', 
+             '#default_value' => isset($values['select_sex']) ? $values['select_sex'] : NULL, 
+             '#size'          => 40,);
   foreach ( DataBridge_getAnalysis() as $analysis ) {
-    $form['select_' . $analysis['name']] = 
+    $form['animal']['select']['select_' . $analysis['name']] = 
       array('#prefix'        => '',
             '#suffix'        => '',
             '#type'          => 'textfield', 
             '#title'         => $analysis['name'], 
-            '#default_value' => isset($values['id']) ? $values['select_' . $analysis['name']] : NULL, 
+            '#default_value' => isset($values['select_' . $analysis['name']]) ? $values['select_' . $analysis['name']] : NULL, 
             '#size'          => 40,);
+    if ( $analysis['nr_of_vars'] ) {
+      for ( $i = 0; $i < $analysis['nr_of_vars']; $i++ ) {
+        $form['animal']['select']['select_' . $analysis['name'] . '_var_' . $i] =
+          array('#prefix'        => '',
+                '#suffix'        => '',
+                '#type'          => 'textfield', 
+                '#title'         => $analysis['name'] . ' variable ' . ($i + 1), 
+                '#default_value' => isset($values['select_' . $analysis['name'] . '_var_' . $i]) ? $values['select_' . $analysis['name'] . '_var_' . $i] : NULL, 
+                '#size'          => 40,);
+      }
+    }
   }
-  $form['from']    = array('#prefix'        => '<h3>FROM</h3>',
-                           '#suffix'        => '',
-                           '#type'          => 'textarea', 
-                           '#title'         => '', 
-                           '#default_value' => isset($values['id']) ? $values['from'] : NULL,);
-  $form['where_date']    = array('#prefix'        => '<h3>WHERE</h3>',
-                           '#suffix'        => '',
-                           '#type'          => 'textfield', 
-                           '#title'         => '= sampling date', 
-                           '#default_value' => isset($values['id']) ? $values['where_date'] : NULL,);
-  $form['where_origin']  = array('#prefix'  => '',
-                           '#suffix'        => '',
-                           '#type'          => 'textfield', 
-                           '#title'         => '= sampling origin', 
-                           '#default_value' => isset($values['id']) ? $values['where_origin'] : NULL,);
+  $form['animal']['tables']['from'] = 
+       array('#prefix'        => '<h3>FROM</h3>',
+             '#suffix'        => '',
+             '#type'          => 'textarea', 
+             '#title'         => '', 
+             '#default_value' => isset($values['from']) ? $values['from'] : NULL,);
+  $form['animal']['where']['where_date'] = 
+       array('#prefix'        => '<h3>WHERE</h3>',
+             '#suffix'        => '',
+             '#type'          => 'textfield', 
+             '#title'         => '= sampling date', 
+             '#default_value' => isset($values['where_date']) ? $values['where_date'] : NULL,);
+  $form['animal']['where']['where_origin'] = 
+       array('#prefix'  => '',
+             '#suffix'        => '',
+             '#type'          => 'textfield', 
+             '#title'         => '= sampling origin', 
+             '#default_value' => isset($values['where_origin']) ? $values['where_origin'] : NULL,);
+  
+  $form['animal']['details']['detail_query'] = 
+       array('#prefix'        => '<h3>SELECT DETAILS</h3>',
+             '#suffix'        => '',
+             '#type'          => 'textarea', 
+             '#title'         => '', 
+             '#default_value' => isset($values['detail_query']) ? $values['detail_query'] : NULL,);
+  
   
   $form['submit'] = array('#type' => 'submit',
                           '#value' => 'Save Queries',);
@@ -263,6 +323,7 @@ function DataBridge_animals_form_submit($form, &$form_state) {
                   'fields'     => '',
                   'tables'     => '',
                   'conditions' => '',);
+  $details = '';
   foreach ( $form_state['values'] as $key => $value ) {
     if ( $key == 'id' ) {
       $fields['id'] = $value;
@@ -284,11 +345,230 @@ function DataBridge_animals_form_submit($form, &$form_state) {
         $fields['conditions'] .= '|' . $value . ':' . $match[1];
       }
     }
+    elseif ( preg_match('/detail_(.*)/', $key, $match) ) {
+      $details .= ':' . $value;
+    }
   }
+  $fields['fields'] .= $details;
   if ( !isset($fields['id']) ) {
     DataBridge_insertAnimals($fields);
   } else {
     DataBridge_updateAnimals($fields);
+  }
+}
+
+/**
+* Creates a drupal for for inputing sample information.
+*
+* This form is used to put sample information into the internal database as
+* part of the configuration process.
+*
+* @param array $form
+*   The form that is to be generated, supplied by drupal
+* @param array &$form_state
+*   The current state of the form, supplied by drupal
+*
+* @return array $form
+*   A drupal form array
+*/
+function DataBridge_samples_form($form, &$form_state) {
+  $values = DataBridge_getSamples();
+  
+  // animal list query
+  $form['sample'] = array('#type'        => 'fieldset', 
+                          '#title'       => 'Sample extraction queries', 
+                          '#description' => t('Defines how to get sample information from the database.'), 
+                          '#collapsible' => TRUE, 
+                          );
+  $form['sample']['select'] = 
+       array('#type'        => 'fieldset', 
+             '#title'       => 'SELECT fields', 
+             '#description' => t('Defines the fields to select from the database.'), 
+             '#collapsible' => TRUE, 
+             '#collapsed'   => TRUE,
+            );
+  $form['sample']['tables'] = 
+       array('#type'        => 'fieldset', 
+             '#title'       => 'FROM fields', 
+             '#description' => t('Defines from where in the database the information should be selected.'), 
+             '#collapsible' => TRUE, 
+             '#collapsed'   => TRUE,
+            );
+  $form['sample']['where'] = 
+       array('#type'        => 'fieldset', 
+             '#title'       => 'WHERE fields', 
+             '#description' => t('Defines how the query should be filtered.'), 
+             '#collapsible' => TRUE, 
+             '#collapsed'   => TRUE,
+            );
+  $form['sample']['details'] = 
+       array('#type'        => 'fieldset', 
+             '#title'       => 'DETAIL fields', 
+             '#description' => t('Defines the fields to select from the database in the detail view.'), 
+             '#collapsible' => TRUE, 
+             '#collapsed'   => TRUE,
+            );
+  $form['sample']['select']['id'] = 
+       array('#type'        => 'hidden',
+             '#value'       => isset($values['id']) ? $values['id'] : NULL);
+  $form['sample']['select']['select_id'] = 
+       array('#prefix'      => '<h3>SELECT</h3>',
+             '#suffix'        => '',
+             '#type'          => 'textfield', 
+             '#title'         => 'id', 
+             '#default_value' => isset($values['select_id']) ? $values['select_id'] : NULL, 
+             '#size'          => 40,
+             '#maxlength'     => 400,);
+  $form['sample']['select']['select_type'] = 
+       array('#prefix' => '',
+             '#suffix'        => '',
+             '#type'          => 'textfield', 
+             '#title'         => 'sample type', 
+             '#default_value' => isset($values['select_type']) ? $values['select_type'] : NULL, 
+             '#size'          => 40,
+             '#maxlength'     => 400,);
+  $form['sample']['select']['select_date'] = 
+       array('#prefix'     => '',
+             '#suffix'        => '',
+             '#type'          => 'textfield', 
+             '#title'         => 'sampling date', 
+             '#default_value' => isset($values['select_date']) ? $values['select_date'] : NULL, 
+             '#size'          => 40,
+             '#maxlength'     => 400,);
+  $form['sample']['select']['select_animal'] = 
+       array('#prefix'     => '',
+             '#suffix'        => '',
+             '#type'          => 'textfield', 
+             '#title'         => 'source animal', 
+             '#default_value' => isset($values['select_animal']) ? $values['select_animal'] : NULL, 
+             '#size'          => 40,
+             '#maxlength'     => 400,);
+  $form['sample']['select']['select_storage'] = 
+       array('#prefix'     => '',
+             '#suffix'        => '',
+             '#type'          => 'textfield', 
+             '#title'         => 'sample storage', 
+             '#default_value' => isset($values['select_storage']) ? $values['select_storage'] : NULL, 
+             '#size'          => 40,
+             '#maxlength'     => 400,);
+   $form['sample']['select']['select_latitude'] = 
+        array('#prefix'     => '',
+              '#suffix'        => '',
+              '#type'          => 'textfield', 
+              '#title'         => 'sampling latitude', 
+              '#default_value' => isset($values['select_latitude']) ? $values['select_latitude'] : NULL, 
+              '#size'          => 40,
+              '#maxlength'     => 400,);
+    $form['sample']['select']['select_longitude'] = 
+         array('#prefix'     => '',
+               '#suffix'        => '',
+               '#type'          => 'textfield', 
+               '#title'         => 'sampling longitude', 
+               '#default_value' => isset($values['select_longitude']) ? $values['select_longitude'] : NULL, 
+               '#size'          => 40,
+               '#maxlength'     => 400,);
+  $form['sample']['select']['select_parent'] = 
+       array('#prefix'        => '',
+             '#suffix'        => '',
+             '#type'          => 'textfield', 
+             '#title'         => 'parent sample', 
+             '#size'          => 40,
+             '#maxlength'     => 400,
+             '#default_value' => isset($values['select_parent']) ? $values['select_parent'] : NULL,);
+  foreach ( DataBridge_getAnalysis() as $analysis ) {
+    $form['sample']['select']['select_' . $analysis['name']] = 
+      array('#prefix'        => '',
+            '#suffix'        => '',
+            '#type'          => 'textfield', 
+            '#title'         => $analysis['name'], 
+            '#default_value' => isset($values['select_' . $analysis['name']]) ? $values['select_' . $analysis['name']] : NULL, 
+            '#size'          => 40,
+            '#maxlength'     => 400,);
+  }
+  $form['sample']['tables']['from'] = 
+       array('#prefix'        => '<h3>FROM</h3>',
+             '#suffix'        => '',
+             '#type'          => 'textarea', 
+             '#title'         => '', 
+             '#default_value' => isset($values['from']) ? $values['from'] : NULL,);
+  $form['sample']['where']['where_animal'] = 
+       array('#prefix'        => '<h3>WHERE</h3>',
+             '#suffix'        => '',
+             '#type'          => 'textfield', 
+             '#title'         => '= animal id', 
+             '#size'          => 40,
+             '#maxlength'     => 400,
+             '#default_value' => isset($values['where_animal']) ? $values['where_animal'] : NULL,);
+  $form['sample']['details']['detail_query'] = 
+       array('#prefix'        => '<h3>SELECT DETAILS</h3>',
+             '#suffix'        => '',
+             '#type'          => 'textarea', 
+             '#title'         => '', 
+             '#default_value' => isset($values['detail_query']) ? $values['detail_query'] : NULL,);
+  
+  
+  $form['submit'] = array('#type' => 'submit',
+                          '#value' => 'Save Queries',);
+  return $form;
+}
+
+/**
+* Validation of sample query input form
+*
+* @param array $form
+*   The form that is to be generated, supplied by drupal
+* @param array &$form_state
+*   The current state of the form, supplied by drupal
+*/
+function DataBridge_samples_form_validate($form, &$form_state) {
+}
+
+/**
+* Submits the sample query input form
+*
+* @param array $form
+*   The form that is to be generated, supplied by drupal
+* @param array &$form_state
+*   The current state of the form, supplied by drupal
+*/
+function DataBridge_samples_form_submit($form, &$form_state) {
+  $fields = array('id'         => NULL,
+                  'name'       => 'samples',
+                  'fields'     => '',
+                  'tables'     => '',
+                  'conditions' => '',);
+  $details = '';
+  foreach ( $form_state['values'] as $key => $value ) {
+    if ( $key == 'id' ) {
+      $fields['id'] = $value;
+    }
+    elseif ( $key == 'from' ) {
+      $fields['tables'] .= $value;
+    }
+    elseif ( preg_match('/select_(.*)/', $key, $match) ) {
+      if ( $value ) {
+        if ( $fields['fields'] ) {
+          $fields['fields'] .= '|';
+        }
+        $fields['fields'] .= $value . ' AS ' . $match[1];
+      }
+    }
+    elseif ( preg_match('/where_(.*)/', $key, $match) ) {
+      if ( !$fields['conditions'] ) {
+        $fields['conditions'] = $value . ':' . $match[1];
+      } else {
+        $fields['conditions'] .= '|' . $value . ':' . $match[1];
+      }
+    }
+    elseif ( preg_match('/detail_(.*)/', $key, $match) ) {
+      $details .= ':' . $value;
+    }
+  }
+  $fields['fields'] .= $details;
+  if ( !isset($fields['id']) ) {
+    DataBridge_insertSamples($fields);
+  } else {
+    DataBridge_updateSamples($fields);
   }
 }
 
@@ -355,7 +635,6 @@ function DataBridge_samplings_form_submit($form, &$form_state) {
     $queries[$class]['fields'] = $fields;
   }
   
-  drupal_set_message('<pre>' . print_r($queries, true) . '</pre>');
   foreach ($queries as $name => $query) {
     if ( $values = DataBridge_getQuery($name) ) {
       $query['id'] = $values['id'];

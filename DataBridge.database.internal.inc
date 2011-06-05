@@ -28,7 +28,7 @@
  *   interface of the Databridge package.
 */
 
-// TODO: replace i/u/g-Sampling/Animals w. iug-Query since they use the same table.
+// TODO: replace i/u/g-Sampling/Animals/Samples w. iug-Query since they use the same table.
 
 /**
  * Gets analysis information from the internal database.
@@ -61,13 +61,12 @@ function DataBridge_getAnalysis($species = NULL) {
  *   An animal information extraction query
 */
 function DataBridge_getAnimals() {
-  $query = db_select('databridge_queries', 'dq')
-                   ->fields('dq', array('id', 'fields', 'tables', 'conditions',))
-                   ->condition('name', 'animals', '=')
-                   ->execute();
-  $raw = $query->fetchAssoc();
+  $raw = DataBridge_getQuery('animals', array('id', 'fields', 'tables', 'conditions',) );
   $animals = array('id' => $raw['id'],);
-  foreach ( explode('|', $raw['fields']) as $field ) {
+  $fields = strpos($raw['fields'], ':') ? strstr($raw['fields'], ':', true) : $raw['fields'];
+  $animals['detail_query'] = strpos($raw['fields'], ':') ? substr(strstr($raw['fields'], ':'), 1) : '';
+  
+  foreach ( explode('|', $fields ) as $field ) {
     if ( preg_match('/(.*) AS (.*)/', $field, $match) ) {
       $animals['select_' . $match[2]] = $match[1];
     }
@@ -111,6 +110,34 @@ function DataBridge_getClasses() {
 }
 
 /**
+ * Gets sample query information from the internal database.
+ *
+ * @return string $query
+ *   An animal information extraction query
+*/
+function DataBridge_getSamples() {
+  $raw = DataBridge_getQuery('samples', array('id', 'fields', 'tables', 'conditions',) );
+  $samples = array('id' => $raw['id'],);
+  $fields = strpos($raw['fields'], ':') ? strstr($raw['fields'], ':', true) : $raw['fields'];
+  $samples['detail_query'] = strpos($raw['fields'], ':') ? substr(strstr($raw['fields'], ':'), 1) : '';
+  
+  foreach ( explode('|', $fields ) as $field ) {
+    if ( preg_match('/(.*) AS (.*)/', $field, $match) ) {
+      $samples['select_' . $match[2]] = $match[1];
+    }
+  }
+  if ( $raw['tables'] ) {
+    $samples['from'] = $raw['tables'];
+  }
+  foreach ( explode('|', $raw['conditions']) as $field ) {
+    if ( preg_match('/(.*):(.*)/', $field, $match) ) {
+      $samples['where_' . $match[2]] = $match[1];
+    }
+  }
+  return $samples;
+}
+
+/**
  * Gets sampling information from the internal database.
  *
  * By default returns sampling queries for all sampling types, when given
@@ -149,7 +176,11 @@ function DataBridge_getSamplings($class = NULL, $include_blanks = False) {
     }
     $fields = array_merge($default, $blanks);
   }
-  $values = DataBridge_getQuery($class);
+  $table_fields = array('id', 'fields', 'tables', 'conditions');
+  $values = DataBridge_getQuery($class, $table_fields);
+  foreach ($table_fields as $field) {
+    $values[$field] = str_replace('`', '', $values[$field]);
+  }
   
   foreach (explode('|', $values['fields']) as $field) {
     if (preg_match('/(.*) AS (.*)/',$field, $match)) {
@@ -180,7 +211,7 @@ function DataBridge_getSpecies($class = NULL) {
   
   $species = array();
   while ( $data = $db_data->fetchAssoc() ) {
-    $species[$data['id']] = $data;
+    $species[$data['id']] = str_replace('`', '', $data);
   }
   return $species;
 }
@@ -194,9 +225,9 @@ function DataBridge_getSpecies($class = NULL) {
  * @return array $values
  *   Associative array containing query values. 
 */
-function DataBridge_getQuery($query) {
+function DataBridge_getQuery($query, $fields = array('id', 'fields', 'tables', 'conditions')) {
   return db_select('databridge_queries', 'd')
-                   ->fields('d', array('id', 'fields', 'tables', 'conditions'))
+                   ->fields('d', $fields)
                    ->condition('name', $query, '=')
                    ->execute()
                    ->fetchAssoc();
@@ -239,6 +270,31 @@ function DataBridge_insertAnalysis($analysis) {
  *   Returns True on success, False otherwise
 */
 function DataBridge_insertAnimals($fields) {
+  $trn = db_transaction();
+  try {
+    db_insert('databridge_queries')
+              ->fields($fields)
+              ->execute();
+  }
+  catch (Exception $e) {
+    $trn->rollback();
+    watchdog_exception('type', $e);
+    return False;
+  }
+  return True;
+}
+
+/**
+ * Insert sample extraction query information to the internal database.
+ *
+ * @param array $fields
+ *   An array of animal query information arranged as 
+ *   ['name' => '', 'fields' => '', 'tables' => '', 'conditions' => '']
+ *
+ * @return bool $success
+ *   Returns True on success, False otherwise
+*/
+function DataBridge_insertSamples($fields) {
   $trn = db_transaction();
   try {
     db_insert('databridge_queries')
@@ -343,6 +399,33 @@ function DataBridge_updateAnalysis($analysis) {
  *   Returns True on success, False otherwise
 */
 function DataBridge_updateAnimals($fields) {
+  $trn = db_transaction();
+  try {
+    db_update('databridge_queries')
+              ->fields($fields)
+              ->condition('id', $fields['id'], '=')
+              ->execute();
+  }
+  catch (Exception $e) {
+    $trn->rollback();
+    watchdog_exception('type', $e);
+    return False;
+  }
+  return True;
+}
+
+/**
+ * Updates sample extraction query information in the internal database.
+ *
+ * @param array $fields
+ *   An array of sample query information arranged as 
+ *   ['id' => '', name' => '', 'fields' => '', 'tables' => '', 
+ *   'conditions' => '']
+ *
+ * @return bool $success
+ *   Returns True on success, False otherwise
+*/
+function DataBridge_updateSamples($fields) {
   $trn = db_transaction();
   try {
     db_update('databridge_queries')

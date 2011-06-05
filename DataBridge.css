@@ -31,6 +31,15 @@
 
 .databridge_textbox {
     width: 536px;
+    padding-bottom: 10px;
+    margin: 30px 0 0 20px;
+    border: 1px solid #333;
+    float: left;
+}
+
+.databridge_textbox_slim {
+    width: 210px;
+    padding-bottom: 10px;
     margin: 30px 0 0 20px;
     border: 1px solid #333;
     float: left;
@@ -175,7 +184,7 @@ div.databridge_list {
 
 div.databridge_left {
     float: left;
-    margin: 0 10px 0 0;
+    margin: 0 0 0 0;
 }
 
 div.databridge_right {

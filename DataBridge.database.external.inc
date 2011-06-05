@@ -107,6 +107,234 @@ Class _DataBridgeInterface {
 }
 
 /**
+ * Gets animal information from the external database.
+ *
+ * By default returns animal information for a single animal. If the id
+ * parameter is omitted the functions sets an error message and defaults to the
+ * summary page.
+ *
+ * @param $id = NULL
+ *   Animal id value.
+ *
+ * @return array $data
+ *   An array of animal information.
+*/
+function DataBridge_getAnimalInfo($id = NULL) {
+  $raw = DataBridge_getQuery('animals');
+  
+  // Get the "id" from the normal fields
+  $id_query = strstr($raw['fields'], '|', true) . ",\n";
+  
+  // Get the rest of the normal fields
+  $data = substr(strstr(strstr($raw['fields'], ':', true), '|'), 1);
+  $query = "SELECT " . $id_query . implode(",\n\t", explode('|', $data) );
+  
+  // Get the "details" part of the query
+  if ( $data = substr(strstr($raw['fields'], ':'), 1) ) { 
+    $query .= ",\n" . implode(",\n\t", explode('|', $data) );
+  }
+  
+  // Add FROM part of the query
+  $query .= "\nFROM " . $raw['tables'];
+
+  // Add WHERE part of the query
+  $where = "\nWHERE ";
+  $where .= strstr($id_query, ' ', true) . ' = "' . $id . '"';
+  $query .= $where;
+  
+  // Add a LIMIT 1 just in case
+  $query .= "\n" . 'LIMIT 1';
+  
+  $db = new _DataBridgeInterface();
+  if ($db->open()) {
+    $data = $db->query($query);
+    if ( $data ) {
+      $data = $data[0];
+    }
+  }
+  
+  $data['samples'] = DataBridge_getSampleList($data['id']);
+  
+  return $data;
+}
+
+/**
+ * Gets animal information from the external database.
+ *
+ * By default returns animal information for all animals. When given one or 
+ * more of the optional parameters, only the animal/s fitting the filter will
+ * be returned. All options can be given either as strings or arrays.
+ *
+ * @param $origin = NULL
+ *   String or array of strings with animal origins.
+ * @param $date = NULL
+ *   String or array of strings with sampling dates.
+ *
+ * @return array $samplings
+ *   An array of arrays of animal information.
+*/
+function DataBridge_getAnimalList($origin = NULL, $date = NULL) {
+  $raw = DataBridge_getQuery('animals');
+  $fields = strpos($raw['fields'], ':') ? strstr($raw['fields'], ':', true) : $raw['fields'];
+  $query  = "SELECT " . implode(",\n\t", explode('|', $fields));
+  $query .= "\nFROM " . $raw['tables'];
+  $where = '';
+  if ( ($origin or $date) and isset($raw['conditions']) ) {
+    $conditions = array();
+    foreach ( explode('|', $raw['conditions']) as $condition ) {
+      if ( preg_match('/(.*):(.*)/', $condition, $match)) {
+        $conditions[$match[2]] = $match[1];
+      }
+    }
+    
+    if ( $origin and isset($conditions['origin']) ) {
+      if ( !$where ) {
+        $where = "\nWHERE ";
+      } else {
+        $where .= "\nAND ";
+      }
+      if ( is_array($origin) ) {
+        $where .= $conditions['origin'] . ' IN ("' . implode('", "', $origin) . '")';
+      } else {
+        $where .= $conditions['origin'] . ' = "' . $origin . '"';
+      }
+    }
+    if ( $date and isset($conditions['origin']) ) {
+      if ( !$where ) {
+        $where = "\nWHERE ";
+      } else {
+        $where .= "\nAND ";
+      }
+      if ( is_array($date) ) {
+        $where .= $conditions['date'] . ' IN ("' . implode('", "', $date) . '")';
+      } else {
+        $where .= $conditions['date'] . ' = "' . $date . '"';
+      }
+    }
+  }
+  $query .= $where;
+  $query .= "\n" . 'GROUP BY id';
+  
+  $db = new _DataBridgeInterface();
+  if ($db->open()) {
+    $data = $db->query($query);
+  }
+  
+  return $data;
+}
+
+/**
+ * Gets sample information from the external database.
+ *
+ * By default returns sample information for a single sample. If the id
+ * parameter is omitted the functions sets an error message and defaults to the
+ * summary page.
+ *
+ * @param $id = NULL
+ *   Sample id value.
+ *
+ * @return array $data
+ *   An array of sample information.
+*/
+function DataBridge_getSampleInfo($id = NULL) {
+  $raw = DataBridge_getQuery('samples');
+  
+  // Get the "id" from the normal fields
+  $id_query = strstr($raw['fields'], '|', true) . ",\n";
+  
+  // Get the rest of the normal fields
+  $normal = substr(strstr(strstr($raw['fields'], ':', true), '|'), 1);
+  $query = "SELECT " . $id_query . implode(",\n\t", explode('|', $normal) );
+  
+  // Get the "details" part of the query
+  if ( $details = substr(strstr($raw['fields'], ':'), 1) ) { 
+    $query .= ",\n" . implode(",\n\t", explode('|', $details) );
+  }
+  
+  // Add FROM part of the query
+  $query .= "\nFROM " . $raw['tables'];
+
+  // Add WHERE part of the query
+  $where = "\nWHERE ";
+  $where .= strstr($id_query, ' ', true) . ' = "' . $id . '"';
+  $query .= $where;
+  
+  // Add a LIMIT 1 just in case
+  $query .= "\n" . 'LIMIT 1';
+  
+  $db = new _DataBridgeInterface();
+  if ($db->open()) {
+    $data = $db->query($query);
+    if ( $data ) {
+      $data = $data[0];
+      
+      // Add sibling samples if we have a parent
+      if ( preg_match('/\|([^|]*) AS parent/', $raw['fields'], $match) ) { 
+        $query = 'SELECT ' . $id_query . implode(",\n\t", explode('|', $normal) ) . "\n" . 
+                 'FROM ' . $raw['tables'] . "\n" . 
+                 'WHERE ' . $match[1] . ' = "' . $data['parent'] . '"';
+        $data['siblings'] = array();
+        foreach ( $db->query($query) as $sibling ) {
+          array_push($data['siblings'], $sibling);
+        }
+      }
+    }
+  }
+  
+  return $data;
+}
+
+/**
+ * Gets sample information from the external database.
+ *
+ * By default returns sample information for all samples. When given the 
+ * optional animal_id parameter, only the sample/s from this animal will be 
+ * returned. animal_id can be given either as a string or an array.
+ *
+ * @param $animal_id = NULL
+ *   String or array of strings with animal IDs.
+ *
+ * @return array $samplings
+ *   An array of arrays of animal information.
+*/
+function DataBridge_getSampleList($animal_id = NULL) {
+  $raw = DataBridge_getQuery('samples');
+  
+  $fields = strpos($raw['fields'], ':') ? strstr($raw['fields'], ':', true) : $raw['fields'];
+  $query  = "SELECT " . implode(",\n\t", explode('|', $fields));
+  $query .= "\nFROM " . $raw['tables'];
+  $where = '';
+  
+  if ( $animal_id and isset($raw['conditions']) ) {
+    $conditions = array();
+    foreach ( explode('|', $raw['conditions']) as $condition ) {
+      if ( preg_match('/(.*):(.*)/', $condition, $match)) {
+        $conditions[$match[2]] = $match[1];
+      }
+    }
+    if ( $animal_id and isset($conditions['animal']) ) {
+      if ( !$where ) {
+        $where = "\nWHERE ";
+      } else {
+        $where .= "\nAND ";
+      }
+      if ( is_array($animal_id) ) {
+        $where .= $conditions['animal'] . ' IN ("' . implode('", "', $animal_id) . '")';
+      } else {
+        $where .= $conditions['animal'] . ' = "' . $animal_id . '"';
+      }
+    }
+  }
+  $query .= $where;
+  
+  $db = new _DataBridgeInterface();
+  if ($db->open()) {
+    $data = $db->query($query);
+  }
+  return $data;
+}
+
+/**
  * Gets sampling information from the external database.
  *
  * By default returns sampling information for all sampling types, when given
@@ -207,91 +435,6 @@ function DataBridge_getSamplingInfo($classes = NULL, $cluster = true, $min_clust
 }
 
 /**
- * Gets animal information from the external database.
- *
- * By default returns animal information for all animals. When given one or 
- * more of the optional parameters, only the animal/s fitting the filter will
- * be returned. All options can be given either as strings or arrays.
- *
- * @param $origin = NULL
- *   String or array of strings with animal origins.
- * @param $date = NULL
- *   String or array of strings with sampling dates.
- * @param $id = NULL
- *   Animal id or ids to return.
- *
- * @return array $samplings
- *   An array of arrays of animal information.
-*/
-function DataBridge_getAnimalInfo($origin = NULL, $date = NULL, $id = NULL) {
-  $raw = DataBridge_getQuery('animals');
-  $query  = "SELECT " . implode(",\n\t", explode('|', $raw['fields']));
-  $query .= "\nFROM " . $raw['tables'];
-  $where = '';
-  if ( ($origin or $date) and isset($raw['conditions']) ) {
-    $conditions = array();
-    foreach ( explode('|', $raw['conditions']) as $condition ) {
-      if ( preg_match('/(.*):(.*)/', $condition, $match)) {
-        $conditions[$match[2]] = $match[1];
-      }
-    }
-    
-    if ( $origin and isset($conditions['origin']) ) {
-      if ( !$where ) {
-        $where = "\nWHERE ";
-      } else {
-        $where .= "\nAND ";
-      }
-      if ( is_array($origin) ) {
-        $where .= $conditions['origin'] . ' IN ("' . implode('", "', $origin) . '")';
-      } else {
-        $where .= $conditions['origin'] . ' = "' . $origin . '"';
-      }
-    }
-    if ( $date and isset($conditions['origin']) ) {
-      if ( !$where ) {
-        $where = "\nWHERE ";
-      } else {
-        $where .= "\nAND ";
-      }
-      if ( is_array($origin) ) {
-        $where .= $conditions['date'] . ' IN ("' . implode('", "', $date) . '")';
-      } else {
-        $where .= $conditions['date'] . ' = "' . $date . '"';
-      }
-    }
-  }
-  if ( $id ) {
-    $id_field = '';
-    foreach ( explode('|', $raw['fields']) as $field ) {
-      if ( preg_match('/(.*) AS id/', $field, $match)) {
-        $id_field = $match[1];
-      }
-    }
-    if ( !$where ) {
-      $where = "\nWHERE ";
-    } else {
-      $where .= "\nAND ";
-    }
-    if ( is_array($origin) ) {
-      $where .= $id_field . ' IN ("' . implode('", "', $id) . '")';
-    } else {
-      $where .= $id_field . ' = "' . $id . '"';
-    }
-  }
-  $query .= $where;
-  $query .= "\n" . 'GROUP BY id';
-  
-  $db = new _DataBridgeInterface();
-  if ($db->open()) {
-    $data = $db->query($query);
-  }
-  
- // drupal_set_message('<pre>' . print_r($query, true) . print_r($data, true) . '</pre>');
-  return $data;
-}
-
-/**
  * Gets a list of animals from the external database.
  *
  * @param int $start = 0
@@ -302,18 +445,20 @@ function DataBridge_getAnimalInfo($origin = NULL, $date = NULL, $id = NULL) {
  * @return array $animals
  *   An array of animals
 */
-//function Databridge_getAnimals($start = 0, $nr_of_items = 2000000) {
-//  $db = new _DataBridgeInterface();
-//  $query = "SELECT a.animal_id, o.org_name, a.sex, a.location, a.owner, a.status 
-//            FROM custom_animals a 
-//            JOIN organisms o ON o.org_id = a.organism
-//            ORDER BY a.animal_id
-//            LIMIT $start, $nr_of_items;";
-//  if ($db->open()) {
-//    return $db->query($query);
-//  }
-//  return array();
-//}
+/*
+function Databridge_getAnimals($start = 0, $nr_of_items = 2000000) {
+  $db = new _DataBridgeInterface();
+  $query = "SELECT a.animal_id, o.org_name, a.sex, a.location, a.owner, a.status 
+            FROM custom_animals a 
+            JOIN organisms o ON o.org_id = a.organism
+            ORDER BY a.animal_id
+            LIMIT $start, $nr_of_items;";
+  if ($db->open()) {
+    return $db->query($query);
+  }
+  return array();
+}
+*/
 
 /**
  * Returns information about an animal from an animal id.
@@ -515,6 +660,7 @@ function Databridge_getWildlifeTrips() {
  * @return array $animals
  *   A list of all samples in the database.
 */
+/*
 function DataBridge_getSamples($first = 0, $nr_of_items = 50) {
   $samples = array();
   $db = new _DataBridgeInterface();
@@ -538,6 +684,7 @@ function DataBridge_getSamples($first = 0, $nr_of_items = 50) {
   }
   return $samples;
 }
+*/
 
 /**
  * Gets information about a single sample in the external database.

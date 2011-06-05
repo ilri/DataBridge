@@ -228,8 +228,8 @@ function DataBridge_install() {
                 ->execute();
     }
     
-    // Insert default values for samplings
-    $samplings = array(array('id'     => 1,
+    // Insert default values for queries
+    $queries   = array(array('id'     => 1,
                              'name'   => 'livestock',
                              'fields' => "UNIX_TIMESTAMP(s.VisitDate) AS `date`|s.origin AS `origin`|s.Latitude AS `latitude`|s.Longitude AS `longitude`|SUM(IF(ca.organism = 3, 1, 0)) AS `sheep/sampled`|SUM(IF(ca.organism = 3 AND ca.sex = 'Female', 1, 0)) AS `sheep/female`|SUM(IF(ca.organism = 3 AND et.STATUS = 'POSITIVE', 1, 0)) AS `sheep/ELISA`|SUM(IF(ca.organism = 3 AND ca.Status = 'Alive', 1, 0)) AS `sheep/Alive`|SUM(IF(ca.organism = 2, 1, 0)) AS `goat/sampled`|SUM(IF(ca.organism = 2 AND ca.sex = 'Female', 1, 0)) AS `goat/female`|SUM(IF(ca.organism = 2 AND et.STATUS = 'POSITIVE', 1, 0)) AS `goat/ELISA`|SUM(IF(ca.organism = 2 AND ca.Status = 'Alive', 1, 0)) AS `goat/Alive`",
                              'tables' => "( SELECT AnimalID, 
@@ -257,13 +257,32 @@ AND AnimalID NOT IN (SELECT animal_id FROM custom_animals)",
                              ),
                         array('id'     => 3,
                               'name'   => 'animals',
-                              'fields' => "",
-                              'tables' => "",
-                              'conditions'  => '',
+                              'fields' => "a.animal_id AS id|o.org_name AS species|a.sex AS sex|et.STATUS AS ELISA|a.status AS Alive:a.animal_id \"Animal ID\",
+a.prev_tag \"Previous ID\",
+UNIX_TIMESTAMP(a.approx_dob) \"Date of Birth\",
+a.location \"Location\",
+a.owner \"Owner\",
+SUM(s.latitude)/COUNT(s.latitude) \"Latitude\",
+SUM(s.longitude)/COUNT(s.longitude) \"Longitude\"",
+                              'tables' => "samples s 
+JOIN custom_animals a ON s.AnimalID = a.animal_id 
+JOIN organisms o ON o.org_id = a.organism 
+LEFT JOIN elisaTest et ON et.sampleId = s.count",
+                              'conditions'  => 'UNIX_TIMESTAMP(s.VisitDate):date|s.origin:origin',
+                              ),
+                        array('id'     => 4,
+                              'name'   => 'samples',
+                              'fields' => "s.label AS id|\"Freezer Tube\" AS type|UNIX_TIMESTAMP(s.VisitDate) AS date|s.AnimalID AS animal|IF ( SUBSTR(s.TrayID, 5,1) = 'L' OR SUBSTR(TrayID, 5,1) = 'W', 'ILRI', IF ( SUBSTR(s.TrayID, 5,1) = 'R', 'KARI', IF ( SUBSTR(s.TrayID, 5,1) = 'A', 'DVS', IF ( SUBSTR(s.TrayID, 5,1) = 'C', 'ICIPE', IF (SUBSTR(s.TrayID, 5,1) = 'M', 'KEMRI', 'Unknown'))))) AS storage|s.Latitude AS latitude|s.Longitude AS longitude|SUBSTRING(comments, POSITION('SourceTube=' IN comments) + 11, 9) AS parent|et.STATUS AS ELISA:TrayID \"Storage Tray\",
+et.STATUS \"ELISA\"",
+                              'tables' => "samples s 
+JOIN custom_animals a ON s.AnimalID = a.animal_id 
+JOIN organisms o ON o.org_id = a.organism 
+LEFT JOIN elisaTest et ON et.sampleId = s.count",
+                              'conditions'  => 's.AnimalID:animal',
                               ),
                        );
     
-     foreach($samplings as $query) {
+     foreach($queries as $query) {
        db_insert('databridge_queries')
                  ->fields($query)
                  ->execute();
