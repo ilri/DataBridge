@@ -54,6 +54,10 @@ function DataBridge_schema() {
                                              'type' => 'text',
                                              'size' => 'medium',
                                              ),
+                           'conditions' => array('description' => 'Conditions for the query.',
+                                             'type' => 'text',
+                                             'size' => 'medium',
+                                             ),
                            ),
                      'primary key' => array('id',),
                      'unique keys' => array('databridge_query_name' => array('name'),),
@@ -100,23 +104,28 @@ function DataBridge_schema() {
                                              'length' => 30,
                                              'not null' => True,
                                              ),
-                           'status_query' => array('description' => 'query to extract analysis status.',
+                           'description' => array('description' => 'Description of the analysis.',
                                              'type' => 'text',
                                              'size' => 'medium',
                                              ),
-                           'details_query' => array('description' => 'query to extract analysis details.',
-                                             'type' => 'text',
-                                             'size' => 'medium',
+                           'nr_of_vars' => array('description' => 'Number of variables of interest.',
+                                             'type' => 'int',
+                                             'size' => 'normal',
                                              ),
                            'protocol'  => array('description' => 'URL to the analysis protocol',
                                              'type' => 'varchar',
                                              'length' => 100,
                                              ),
+                           'species'  => array('description' => 'Species affected by this analysis.',
+                                              'type' => 'text',
+                                              'size' => 'medium',
+                                              ),
                            ),
                      'primary key' => array('id',),
                      'unique keys' => array('databridge_analysis_name' => array('name'),),
                      'mysql_suffix' => " DEFAULT CHARACTER SET UTF8",
                      ),
+          /*
                'databridge_areas' =>
                array('description'    => 'Stores gps area information for the DataBridge module.',
                      'fields'            => 
@@ -155,6 +164,7 @@ function DataBridge_schema() {
                                              ),
                      'mysql_suffix' => " DEFAULT CHARACTER SET UTF8",
                      ),
+          */
                );
 }
 
@@ -162,6 +172,121 @@ function DataBridge_schema() {
  * Installs default behaviour for the DataBridge module.
 */
 function DataBridge_install() {
+    /**
+     * As of now the default values are the configuration values used at ILRI.
+     * These serve both as an example of valid configuration options and to 
+     * allow fast installation on our systems.
+     */
+  
+    // Insert default values for species.
+    $species = array(array('id'              => 1,
+                           'common_name'     => 'Sheep',
+                           'scientific_name' => 'Ovis aries',
+                           'class'           => 'livestock',
+                           ),
+                     array('id'              => 2,
+                           'common_name'     => 'Goat',
+                           'scientific_name' => 'Capra aegagrus hircus',
+                           'class'           => 'livestock',
+                           ),
+                     array('id'              => 3,
+                           'common_name'     => 'Cattle',
+                           'scientific_name' => 'Bos taurus',
+                           'class'           => '',
+                           ),
+                      array('id'              => 4,
+                            'common_name'     => 'Wildlife',
+                            'scientific_name' => '',
+                            'class'           => 'wildlife',
+                            ),
+                    );
+    foreach($species as $animal) {
+      db_insert('databridge_species')
+                ->fields($animal)
+                ->execute();
+    }
+    
+    // Insert default values for analysis
+    $analysis = array(array('id'          => 1,
+                            'name'        => 'ELISA',
+                            'description' => "Enzyme-linked immunosorbent assay (ELISA), also known as an enzyme immunoassay (EIA), is a biochemical technique used mainly in immunology to detect the presence of an antibody or an antigen in a sample.\nSource: Wikipedia", 
+                            'nr_of_vars'  => 1,
+                            'protocol'    => '',
+                            'species'     => '1,2',
+                            ),
+                      array('id'          => 2,
+                            'name'        => 'Alive',
+                            'description' => "Check whether animal is alive or dead.", 
+                            'nr_of_vars'  => 0,
+                            'protocol'    => '',
+                            'species'     => '1,2',
+                            ),
+                     );
+    foreach($analysis as $test) {
+      db_insert('databridge_analysis')
+                ->fields($test)
+                ->execute();
+    }
+    
+    // Insert default values for queries
+    $queries   = array(array('id'     => 1,
+                             'name'   => 'livestock',
+                             'fields' => "UNIX_TIMESTAMP(s.VisitDate) AS `date`|s.origin AS `origin`|s.Latitude AS `latitude`|s.Longitude AS `longitude`|SUM(IF(ca.organism = 3, 1, 0)) AS `sheep/sampled`|SUM(IF(ca.organism = 3 AND ca.sex = 'Female', 1, 0)) AS `sheep/female`|SUM(IF(ca.organism = 3 AND et.STATUS = 'POSITIVE', 1, 0)) AS `sheep/ELISA`|SUM(IF(ca.organism = 3 AND ca.Status = 'Alive', 1, 0)) AS `sheep/Alive`|SUM(IF(ca.organism = 2, 1, 0)) AS `goat/sampled`|SUM(IF(ca.organism = 2 AND ca.sex = 'Female', 1, 0)) AS `goat/female`|SUM(IF(ca.organism = 2 AND et.STATUS = 'POSITIVE', 1, 0)) AS `goat/ELISA`|SUM(IF(ca.organism = 2 AND ca.Status = 'Alive', 1, 0)) AS `goat/Alive`",
+                             'tables' => "( SELECT AnimalID, 
+    VisitDate, 
+    origin, 
+    project, 
+    count, 
+    Latitude, 
+    Longitude
+  FROM samples
+  GROUP BY AnimalID 
+) s
+JOIN custom_animals ca ON s.AnimalID = ca.animal_id 
+LEFT JOIN elisaTest et ON et.sampleID = s.count 
+WHERE VisitDate AND origin IS NOT NULL AND s.project = 5",
+                             'conditions'  => '',
+                             ),
+                       array('id'     => 2,
+                             'name'   => 'wildlife',
+                             'fields' => "UNIX_TIMESTAMP(VisitDate) AS date|origin AS origin|Latitude AS latitude|Longitude AS longitude|SUM(IF(count, 1, 0)) AS `wildlife/sampled`",
+                             'tables' => "samples 
+WHERE VisitDate AND origin IS NOT NULL AND project = 5
+AND AnimalID NOT IN (SELECT animal_id FROM custom_animals)",
+                             'conditions'  => '',
+                             ),
+                        array('id'     => 3,
+                              'name'   => 'animals',
+                              'fields' => "a.animal_id AS id|o.org_name AS species|a.sex AS sex|et.STATUS AS ELISA|a.status AS Alive:a.animal_id \"Animal ID\",
+a.prev_tag \"Previous ID\",
+UNIX_TIMESTAMP(a.approx_dob) \"Date of Birth\",
+a.location \"Location\",
+a.owner \"Owner\",
+SUM(s.latitude)/COUNT(s.latitude) \"Latitude\",
+SUM(s.longitude)/COUNT(s.longitude) \"Longitude\"",
+                              'tables' => "samples s 
+JOIN custom_animals a ON s.AnimalID = a.animal_id 
+JOIN organisms o ON o.org_id = a.organism 
+LEFT JOIN elisaTest et ON et.sampleId = s.count",
+                              'conditions'  => 'UNIX_TIMESTAMP(s.VisitDate):date|s.origin:origin',
+                              ),
+                        array('id'     => 4,
+                              'name'   => 'samples',
+                              'fields' => "s.label AS id|\"Freezer Tube\" AS type|UNIX_TIMESTAMP(s.VisitDate) AS date|s.AnimalID AS animal|IF ( SUBSTR(s.TrayID, 5,1) = 'L' OR SUBSTR(TrayID, 5,1) = 'W', 'ILRI', IF ( SUBSTR(s.TrayID, 5,1) = 'R', 'KARI', IF ( SUBSTR(s.TrayID, 5,1) = 'A', 'DVS', IF ( SUBSTR(s.TrayID, 5,1) = 'C', 'ICIPE', IF (SUBSTR(s.TrayID, 5,1) = 'M', 'KEMRI', 'Unknown'))))) AS storage|s.Latitude AS latitude|s.Longitude AS longitude|SUBSTRING(comments, POSITION('SourceTube=' IN comments) + 11, 9) AS parent|et.STATUS AS ELISA:TrayID \"Storage Tray\",
+et.STATUS \"ELISA\"",
+                              'tables' => "samples s 
+JOIN custom_animals a ON s.AnimalID = a.animal_id 
+JOIN organisms o ON o.org_id = a.organism 
+LEFT JOIN elisaTest et ON et.sampleId = s.count",
+                              'conditions'  => 's.AnimalID:animal',
+                              ),
+                       );
+    
+     foreach($queries as $query) {
+       db_insert('databridge_queries')
+                 ->fields($query)
+                 ->execute();
+     }
 }
 
 /**
@@ -169,7 +294,7 @@ function DataBridge_install() {
  *
  * This function empties the DataBridge database so if you are using the 
  * internal database make sure to backup your data before uninstalling the 
- * module!
+ * module/
 */
 function DataBridge_uninstall() {
   // Delete DataBridge system variables
