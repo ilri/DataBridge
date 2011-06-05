@@ -275,7 +275,9 @@ function DataBridge_getSampleInfo($id = NULL) {
                  'WHERE ' . $match[1] . ' = "' . $data['parent'] . '"';
         $data['siblings'] = array();
         foreach ( $db->query($query) as $sibling ) {
-          array_push($data['siblings'], $sibling);
+          if ( $sibling['id'] != $id ) {
+            array_push($data['siblings'], $sibling);
+          }
         }
       }
     }
