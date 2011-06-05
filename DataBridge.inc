@@ -45,6 +45,8 @@ function _DataBridge_Message($type = '', $opt1 = '') {
                        break;
   case 'NotConnected': $msg = 'Not connected to the DataBridge database.';
                        $msg_type = 'error';
+  case 'UnknownFormat':$msg = 'Unknown Format "' . $opt1 . '"';
+                       $msg_type = 'warning';
                        break;
   }
   drupal_set_message($msg, $msg_type);
@@ -99,30 +101,6 @@ function _balance_sheet(&$sheet, $length) {
     }
   }
   return True;
-}
-
-/**
- * Creates list controls for a list
- *
- * @param string $list
- *   The list to be controlled
- * @param int $start
- *   Start of the current list
- * @param int $nr_of_items
- *   Number of items in the current list
- *
- * @return string $html
-*/
-function Databridge_listcontrol($list, $start = 0, $nr_of_items = 50) {
-  $page_content  = '<div class="databridge_listcontrol">';
-  if ($start > 0) {
-    $min = ($start - $nr_of_items) < 0 ? 0 : ($start - $nr_of_items);
-    $page_content .= l('<<', 'databridge/' . $list . '/list/' . $min . '/' . $nr_of_items);
-  }
-  $page_content .= ' [' . $start . ' to ' . ($start + $nr_of_items) . '] ';
-  $page_content .= l('>>', 'databridge/' . $list . '/list/' . ($start + $nr_of_items) . '/' . $nr_of_items);
-  $page_content .= '</div>';
-  return $page_content;
 }
 
 /**

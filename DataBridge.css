@@ -17,14 +17,6 @@
  * along with Databridge. If not, see <http://www.gnu.org/licenses/>.
 */
 
-.databridge_analysis {
-    width: 450px;
-    height: 300px;
-    margin: 30px 0 0 20px;
-    border: 1px solid #333;
-    float: right;
-}
-
 .databridge_field {
     width: 500px;;
 }
@@ -61,60 +53,6 @@
 }
 
 #databridge_animalview div {
-}
-
-#databridge_animalview_static {
-    width: 536px;
-    height: 210px;
-    margin: 30px 0 0 20px;
-    border: 1px solid #333;
-    float: left;
-}
-
-#databridge_animalview_map {
-    width: 348px;
-    height: 210px;
-    margin: 30px 22px 0 5px;
-    border: 1px solid #333;
-    float: right;
-}
-
-#databridge_animalview_samples {
-}
-
-.databridge_animalview_sample {
-    width: 196px;
-    height: 210px;
-    margin: 30px 0 0 20px;
-    float: left;
-    border-left: 8px solid #333;
-    border-right: 8px solid #333;
-    border-top: 1px solid #333;
-    border-bottom: 1px solid #333;
-}
-
-#databridge_sampleview {
-    width: 536px;
-    height: 500px;
-    margin: 30px 0 0 20px;
-    border: 1px solid #333;
-    float: left;
-}
-
-#databridge_sampleview_map {
-    width: 348px;
-    height: 210px;
-    margin: 30px 22px 0 5px;
-    border: 1px solid #333;
-    float: right;
-}
-
-#databridge_sampleview_comment {
-    width: 348px;
-    height: 258px;
-    margin: 30px 22px 0 5px;
-    border: 1px solid #333;
-    float: right;
 }
 
 .databridge_sampling {

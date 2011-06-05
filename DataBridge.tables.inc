@@ -246,6 +246,8 @@ function DataBridge_getSamplingTable($class, $location, $date) {
 /**
  * Gets a summary table of the database, mostly used to return file summaries.
  *
+ * Not yet implemented
+ *
  * @return array $table
  *   A table of information
 */

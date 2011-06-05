@@ -44,7 +44,7 @@ function DataBridge_summary() {
   $page_content  = '';
   
   // Print summaries of all classes of sampling trips
-  $page_content .= DataBridge_summary_sampling();
+  $page_content .= DataBridge_view_sampling();
   
   return $page_content;
 }
@@ -69,11 +69,10 @@ function DataBridge_summary() {
  * @return string $html
  *   Html formatted sampling information
 */
-function DataBridge_summary_sampling($class = NULL, $location = NULL, $date = NULL, $format = NULL) {
+function DataBridge_view_sampling($class = NULL, $location = NULL, $date = NULL, $format = NULL) {
   
   // if we're returning an excel sheet...
   if ( $format == 'xls' ) {
-  //  return '<pre>' . print_r(DataBridge_getSamplingTable($class, $location, $date), true) . '</pre>';
     drupal_add_http_header('Content-Type', 'application/vnd.ms-excel'); 
     drupal_add_http_header('Content-Disposition:', 'attachment; filename=' . $class . '_sampling_' . $location . '_' . $date . '.' . $format . ';');
     print DataBridge_excel(DataBridge_getSamplingTable($class, $location, $date));
@@ -96,7 +95,7 @@ function DataBridge_summary_sampling($class = NULL, $location = NULL, $date = NU
     // If the data was found, present it in a neat manner, otherwise present a summary of samplings.
     return $data ? DataBridge_format_sampling($data, $class) : DataBridge_format_sampling_summary($raw);
   }  else {
-    drupal_set_message('Unknown format "' . $format . '".', 'warning');
+    _DataBridge_Message('UnknownFormat', $format);
     return DataBridge_format_sampling_summary($raw);
   }
 }
@@ -116,7 +115,7 @@ function DataBridge_summary_sampling($class = NULL, $location = NULL, $date = NU
  * @return $page_content
  *   Returns some html to drupal.
 */
-function DataBridge_summary_animal($id = NULL, $format = NULL) {
+function DataBridge_view_animal($id = NULL, $format = NULL) {
   
   if ( $format == 'xls' ) {
     drupal_add_http_header('Content-Type', 'application/vnd.ms-excel'); 
@@ -166,7 +165,7 @@ function DataBridge_summary_animal($id = NULL, $format = NULL) {
  * @return $page_content
  *   Returns some html to drupal.
 */
-function DataBridge_summary_sample($id = NULL, $format = NULL) {
+function DataBridge_view_sample($id = NULL, $format = NULL) {
   
   if ( $format == 'xls' ) {
     drupal_add_http_header('Content-Type', 'application/vnd.ms-excel'); 
