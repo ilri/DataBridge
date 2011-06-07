@@ -92,6 +92,11 @@ function DataBridge_view_sampling($class = NULL, $location = NULL, $date = NULL,
         }
       }
     }
+    // If we have data, add a download link
+    if ( $data ) {
+      $data['download'] = l('xls', 'databridge/sampling/' . $class . '/' . $location . '/' . $date . '/xls');
+    }
+    
     // If the data was found, present it in a neat manner, otherwise present a summary of samplings.
     return $data ? DataBridge_format_sampling($data, $class) : DataBridge_format_sampling_summary($raw);
   }  else {
@@ -125,6 +130,7 @@ function DataBridge_view_animal($id = NULL, $format = NULL) {
   } else {
     $page_content  = '';
     $data = DataBridge_getAnimalInfo($id);
+    $data['download'] = l('xls', 'databridge/animal/' . $id . '/xls');
     $page_content .= '<h3>Animal ' . ucfirst($id) . '</h3>';
     $page_content .= DataBridge_textbox('Animal Information', $data);
     
@@ -175,6 +181,7 @@ function DataBridge_view_sample($id = NULL, $format = NULL) {
   } else {
     $page_content  = '';
     $data = DataBridge_getSampleInfo($id);
+    $data['download'] = l('xls', 'databridge/sample/' . $id . '/xls');
     $page_content .= '<h3>Sample ' . ucfirst($id) . '</h3>';
     if ( isset($data['animal']) ) {
       $data['animal'] = l($data['animal'], 'databridge/animal/' . $data['animal']);
