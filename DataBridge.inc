@@ -446,17 +446,17 @@ function DataBridge_format_sampling($data, $class) {
                      ' on ' . strftime('%Y-%m-%d', $location['date']) . '</div>';                 
     $page_content .= '<div class="databridge_list">';
     
-    // Create a header with the proper fields
-    $header = array('Animal ID', 'Sex', 'Species', );
-    foreach ( DataBridge_getAnalysis() as $analysis ) {
-      array_push($header, $analysis['name']);
-    }
-    
     $animals = DataBridge_getAnimalList($location['origin'], $location['date']);
     
     // add links
+    $header = array();
     foreach ( $animals as $key => $animal ) {
       $animals[$key]['id'] = l($animal['id'], 'databridge/animal/' . $animal['id']);
+      if ( !$header ) {
+        foreach ( $animal as $key => $value ) {
+          array_push($header, DataBridge_format($key));
+        }
+      }
     }
     
     $page_content .= theme('table', array('header' => $header, 'rows' => $animals,) );
